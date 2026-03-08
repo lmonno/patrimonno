@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: money-tracker-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: moneytracker
+      POSTGRES_PASSWORD: moneytracker_dev
+      POSTGRES_DB: moneytracker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moneytracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: money-tracker-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://moneytracker:moneytracker_dev@db:5432/moneytracker?schema=public"
+      AUTH_SECRET: "${AUTH_SECRET:-Wc3bneHND5K0HRDe9KWfekdzTl/lNh8tW9XohU6Ke+U=}"
+      NEXTAUTH_URL: "http://localhost:3000"
+      AUTH_TRUST_HOST: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

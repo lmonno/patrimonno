@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── AUTHENTICATION (NextAuth) ──────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── DOMAIN MODELS ──────────────────────────────────────────────
+
+model User {
+  id             String    @id @default(cuid())
+  nome           String
+  cognome        String
+  email          String    @unique
+  hashedPassword String
+  ruolo          Ruolo     @default(UTENTE)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  accounts  Account[]
+  sessions  Session[]
+  posizioni PosizioneIntestatario[]
+
+  @@map("users")
+}
+
+enum Ruolo {
+  ADMIN
+  UTENTE
+}
+
+model TipoConto {
+  id        String    @id @default(cuid())
+  nome      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  posizioni Posizione[]
+
+  @@map("tipi_conto")
+}
+
+model Posizione {
+  id          String    @id @default(cuid())
+  nome        String
+  tipoContoId String
+  iban        String?
+  banca       String
+  note        String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tipoConto   TipoConto               @relation(fields: [tipoContoId], references: [id])
+  intestatari PosizioneIntestatario[]
+  saldi       Saldo[]
+
+  @@map("posizioni")
+}
+
+model PosizioneIntestatario {
+  id          String @id @default(cuid())
+  posizioneId String
+  userId      String
+
+  posizione Posizione @relation(fields: [posizioneId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([posizioneId, userId])
+  @@map("posizione_intestatari")
+}
+
+model Saldo {
+  id          String   @id @default(cuid())
+  posizioneId String
+  anno        Int
+  mese        Int
+  valore      Decimal  @db.Decimal(15, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  posizione Posizione @relation(fields: [posizioneId], references: [id], onDelete: Cascade)
+
+  @@unique([posizioneId, anno, mese])
+  @@map("saldi")
+}
