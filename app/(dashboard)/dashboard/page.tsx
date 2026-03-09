@@ -16,7 +16,7 @@ import CategoryIcon from "@mui/icons-material/Category";
 
 interface Counts {
   intestatari: number;
-  posizioni: number;
+  conti: number;
   tipiConto: number;
 }
 
@@ -28,12 +28,12 @@ export default function DashboardPage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/intestatari").then((r) => r.json()),
-      fetch("/api/posizioni").then((r) => r.json()),
+      fetch("/api/conti").then((r) => r.json()),
       fetch("/api/tipi-conto").then((r) => r.json()),
-    ]).then(([intestatari, posizioni, tipiConto]) => {
+    ]).then(([intestatari, conti, tipiConto]) => {
       setCounts({
         intestatari: intestatari.length,
-        posizioni: posizioni.length,
+        conti: conti.length,
         tipiConto: tipiConto.length,
       });
     }).catch(() => {});
@@ -47,8 +47,8 @@ export default function DashboardPage() {
       color: "#e3f2fd",
     },
     {
-      label: "Posizioni",
-      value: counts?.posizioni,
+      label: "Conti",
+      value: counts?.conti,
       icon: <AccountBalanceIcon sx={{ fontSize: 40, color: "secondary.main" }} />,
       color: "#e8f5e9",
     },

@@ -30,7 +30,7 @@ interface Intestatario {
   cognome: string;
 }
 
-interface PosizioneFormProps {
+interface ContoFormProps {
   open: boolean;
   onClose: () => void;
   onSave: () => void;
@@ -41,11 +41,11 @@ interface PosizioneFormProps {
     iban: string | null;
     banca: string;
     note: string | null;
-    intestatari: { user: Intestatario }[];
+    intestatari: { intestatario: Intestatario }[];
   } | null;
 }
 
-export default function PosizioneForm({ open, onClose, onSave, editData }: PosizioneFormProps) {
+export default function ContoForm({ open, onClose, onSave, editData }: ContoFormProps) {
   const [form, setForm] = useState({
     nome: "",
     tipoContoId: "",
@@ -70,7 +70,7 @@ export default function PosizioneForm({ open, onClose, onSave, editData }: Posiz
         iban: editData?.iban ?? "",
         banca: editData?.banca ?? "",
         note: editData?.note ?? "",
-        intestatariIds: editData?.intestatari?.map((i) => i.user.id) ?? [],
+        intestatariIds: editData?.intestatari?.map((i) => i.intestatario.id) ?? [],
       });
       setError("");
     }
@@ -96,7 +96,7 @@ export default function PosizioneForm({ open, onClose, onSave, editData }: Posiz
     setError("");
 
     try {
-      const url = editData ? `/api/posizioni/${editData.id}` : "/api/posizioni";
+      const url = editData ? `/api/conti/${editData.id}` : "/api/conti";
       const method = editData ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -131,7 +131,7 @@ export default function PosizioneForm({ open, onClose, onSave, editData }: Posiz
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
         <DialogTitle>
-          {editData ? "Modifica Posizione" : "Nuova Posizione"}
+          {editData ? "Modifica Conto" : "Nuovo Conto"}
         </DialogTitle>
         <DialogContent>
           {error && (

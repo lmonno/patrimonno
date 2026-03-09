@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { updateIntestatarioSchema } from "@/lib/validations/intestatario";
@@ -15,23 +14,21 @@ export async function GET(
     }
 
     const { id } = await params;
-    const user = await prisma.user.findUnique({
+    const intestatario = await prisma.intestatario.findUnique({
       where: { id, deletedAt: null },
       select: {
         id: true,
         nome: true,
         cognome: true,
-        email: true,
-        ruolo: true,
         createdAt: true,
       },
     });
 
-    if (!user) {
+    if (!intestatario) {
       return NextResponse.json({ error: "Intestatario non trovato" }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json(intestatario);
   } catch (error) {
     console.error("Errore GET intestatario:", error);
     return NextResponse.json({ error: "Errore interno del server" }, { status: 500 });
@@ -47,9 +44,6 @@ export async function PUT(
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
-    if (session.user.ruolo !== "ADMIN") {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
-    }
 
     const { id } = await params;
     const body = await request.json();
@@ -61,26 +55,17 @@ export async function PUT(
       );
     }
 
-    const { password, ...rest } = parsed.data;
-    const updateData: Record<string, unknown> = { ...rest };
-
-    if (password) {
-      updateData.hashedPassword = await bcrypt.hash(password, 12);
-    }
-
-    const user = await prisma.user.update({
+    const intestatario = await prisma.intestatario.update({
       where: { id, deletedAt: null },
-      data: updateData,
+      data: parsed.data,
       select: {
         id: true,
         nome: true,
         cognome: true,
-        email: true,
-        ruolo: true,
       },
     });
 
-    return NextResponse.json(user);
+    return NextResponse.json(intestatario);
   } catch (error) {
     console.error("Errore PUT intestatario:", error);
     return NextResponse.json({ error: "Errore interno del server" }, { status: 500 });
@@ -96,20 +81,9 @@ export async function DELETE(
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
-    if (session.user.ruolo !== "ADMIN") {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
-    }
 
     const { id } = await params;
-
-    if (id === session.user.id) {
-      return NextResponse.json(
-        { error: "Non puoi eliminare il tuo stesso account" },
-        { status: 400 }
-      );
-    }
-
-    await prisma.user.update({
+    await prisma.intestatario.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

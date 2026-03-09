@@ -28,10 +28,6 @@ export async function POST(request: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
-    if (session.user.ruolo !== "ADMIN") {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
-    }
-
     const body = await request.json();
     const parsed = tipoContoSchema.safeParse(body);
     if (!parsed.success) {

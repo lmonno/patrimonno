@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
 import {
   Table,
   TableBody,
@@ -15,7 +14,6 @@ import {
   Box,
   Typography,
   Button,
-  Chip,
   CircularProgress,
   Alert,
   Snackbar,
@@ -31,14 +29,9 @@ interface Intestatario {
   id: string;
   nome: string;
   cognome: string;
-  email: string;
-  ruolo: string;
 }
 
 export default function IntestatariTable() {
-  const { data: session } = useSession();
-  const isAdmin = session?.user?.ruolo === "ADMIN";
-
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -98,18 +91,16 @@ export default function IntestatariTable() {
         <Typography variant="h5" fontWeight={600}>
           Intestatari
         </Typography>
-        {isAdmin && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              setEditData(null);
-              setFormOpen(true);
-            }}
-          >
-            Nuovo Intestatario
-          </Button>
-        )}
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setEditData(null);
+            setFormOpen(true);
+          }}
+        >
+          Nuovo Intestatario
+        </Button>
       </Box>
 
       {intestatari.length === 0 ? (
@@ -121,9 +112,7 @@ export default function IntestatariTable() {
               <TableRow>
                 <TableCell><strong>Cognome</strong></TableCell>
                 <TableCell><strong>Nome</strong></TableCell>
-                <TableCell><strong>Email</strong></TableCell>
-                <TableCell><strong>Ruolo</strong></TableCell>
-                {isAdmin && <TableCell align="right"><strong>Azioni</strong></TableCell>}
+                <TableCell align="right"><strong>Azioni</strong></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -131,40 +120,28 @@ export default function IntestatariTable() {
                 <TableRow key={int.id} hover>
                   <TableCell>{int.cognome}</TableCell>
                   <TableCell>{int.nome}</TableCell>
-                  <TableCell>{int.email}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={int.ruolo}
-                      size="small"
-                      color={int.ruolo === "ADMIN" ? "warning" : "default"}
-                    />
+                  <TableCell align="right">
+                    <Tooltip title="Modifica">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setEditData(int);
+                          setFormOpen(true);
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Elimina">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => setDeleteId(int.id)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
-                  {isAdmin && (
-                    <TableCell align="right">
-                      <Tooltip title="Modifica">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setEditData(int);
-                            setFormOpen(true);
-                          }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {int.id !== session?.user?.id && (
-                        <Tooltip title="Elimina">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => setDeleteId(int.id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  )}
                 </TableRow>
               ))}
             </TableBody>

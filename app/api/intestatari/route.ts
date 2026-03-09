@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createIntestatarioSchema } from "@/lib/validations/intestatario";
@@ -11,14 +10,12 @@ export async function GET() {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
 
-    const intestatari = await prisma.user.findMany({
+    const intestatari = await prisma.intestatario.findMany({
       where: { deletedAt: null },
       select: {
         id: true,
         nome: true,
         cognome: true,
-        email: true,
-        ruolo: true,
         createdAt: true,
       },
       orderBy: { cognome: "asc" },
@@ -37,10 +34,6 @@ export async function POST(request: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
-    if (session.user.ruolo !== "ADMIN") {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
-    }
-
     const body = await request.json();
     const parsed = createIntestatarioSchema.safeParse(body);
     if (!parsed.success) {
@@ -50,24 +43,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { password, ...rest } = parsed.data;
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const user = await prisma.user.create({
-      data: {
-        ...rest,
-        hashedPassword,
-      },
+    const intestatario = await prisma.intestatario.create({
+      data: parsed.data,
       select: {
         id: true,
         nome: true,
         cognome: true,
-        email: true,
-        ruolo: true,
       },
     });
 
-    return NextResponse.json(user, { status: 201 });
+    return NextResponse.json(intestatario, { status: 201 });
   } catch (error) {
     console.error("Errore POST intestatari:", error);
     return NextResponse.json({ error: "Errore interno del server" }, { status: 500 });

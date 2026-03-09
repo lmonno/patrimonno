@@ -7,7 +7,7 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const protectedPaths = ["/dashboard", "/intestatari", "/posizioni", "/tipi-conto"];
+      const protectedPaths = ["/dashboard", "/intestatari", "/conti", "/tipi-conto"];
       const isProtected = protectedPaths.some((path) => nextUrl.pathname.startsWith(path));
 
       if (isProtected) {
@@ -27,7 +27,6 @@ export const authConfig: NextAuthConfig = {
         const u = user as any;
         token.ruolo = u.ruolo;
         token.nome = u.nome;
-        token.cognome = u.cognome;
       }
       return token;
     },
@@ -36,7 +35,6 @@ export const authConfig: NextAuthConfig = {
         session.user.id = token.id as string;
         session.user.ruolo = token.ruolo as "ADMIN" | "UTENTE";
         session.user.nome = token.nome as string;
-        session.user.cognome = token.cognome as string;
       }
       return session;
     },

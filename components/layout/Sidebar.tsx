@@ -22,7 +22,7 @@ const DRAWER_WIDTH = 260;
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: <DashboardIcon /> },
   { label: "Intestatari", href: "/intestatari", icon: <PeopleIcon /> },
-  { label: "Posizioni", href: "/posizioni", icon: <AccountBalanceIcon /> },
+  { label: "Conti", href: "/conti", icon: <AccountBalanceIcon /> },
   { label: "Tipi Conto", href: "/tipi-conto", icon: <CategoryIcon /> },
 ];
 

@@ -45,7 +45,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         {user && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" sx={{ display: { xs: "none", sm: "block" } }}>
-              {user.nome} {user.cognome}
+              {user.nome}
             </Typography>
             <Chip
               label={user.ruolo}

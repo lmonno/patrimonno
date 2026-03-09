@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 
-export const createPosizioneSchema = z.object({
+export const createContoSchema = z.object({
   nome: z.string().min(1, "Il nome è obbligatorio"),
   tipoContoId: z.string().min(1, "Tipo conto non valido"),
   iban: z.string().optional().nullable(),
@@ -9,7 +9,7 @@ export const createPosizioneSchema = z.object({
   intestatariIds: z.array(z.string().min(1)).min(1, "Almeno un intestatario è richiesto"),
 });
 
-export const updatePosizioneSchema = z.object({
+export const updateContoSchema = z.object({
   nome: z.string().min(1).optional(),
   tipoContoId: z.string().min(1).optional(),
   iban: z.string().optional().nullable(),

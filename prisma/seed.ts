@@ -32,7 +32,6 @@ async function main() {
     update: {},
     create: {
       nome: "Admin",
-      cognome: "Famiglia",
       email: "admin@family.local",
       hashedPassword,
       ruolo: Ruolo.ADMIN,

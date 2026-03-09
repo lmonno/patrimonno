@@ -38,9 +38,6 @@ export async function PUT(
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
-    if (session.user.ruolo !== "ADMIN") {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
-    }
 
     const { id } = await params;
     const body = await request.json();
@@ -72,9 +69,6 @@ export async function DELETE(
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
-    }
-    if (session.user.ruolo !== "ADMIN") {
-      return NextResponse.json({ error: "Non autorizzato" }, { status: 403 });
     }
 
     const { id } = await params;

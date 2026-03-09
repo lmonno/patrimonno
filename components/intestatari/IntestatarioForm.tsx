@@ -8,7 +8,6 @@ import {
   DialogActions,
   TextField,
   Button,
-  MenuItem,
   Alert,
 } from "@mui/material";
 
@@ -20,8 +19,6 @@ interface IntestatarioFormProps {
     id: string;
     nome: string;
     cognome: string;
-    email: string;
-    ruolo: string;
   } | null;
 }
 
@@ -29,9 +26,6 @@ export default function IntestatarioForm({ open, onClose, onSave, editData }: In
   const [form, setForm] = useState({
     nome: "",
     cognome: "",
-    email: "",
-    password: "",
-    ruolo: "UTENTE",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,9 +35,6 @@ export default function IntestatarioForm({ open, onClose, onSave, editData }: In
       setForm({
         nome: editData?.nome ?? "",
         cognome: editData?.cognome ?? "",
-        email: editData?.email ?? "",
-        password: "",
-        ruolo: editData?.ruolo ?? "UTENTE",
       });
       setError("");
     }
@@ -63,25 +54,13 @@ export default function IntestatarioForm({ open, onClose, onSave, editData }: In
       const url = editData ? `/api/intestatari/${editData.id}` : "/api/intestatari";
       const method = editData ? "PUT" : "POST";
 
-      const body: Record<string, string> = {
-        nome: form.nome,
-        cognome: form.cognome,
-        email: form.email,
-        ruolo: form.ruolo,
-      };
-
-      if (form.password) {
-        body.password = form.password;
-      } else if (!editData) {
-        setError("La password è obbligatoria");
-        setLoading(false);
-        return;
-      }
-
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          nome: form.nome,
+          cognome: form.cognome,
+        }),
       });
 
       if (!res.ok) {
@@ -128,36 +107,6 @@ export default function IntestatarioForm({ open, onClose, onSave, editData }: In
             onChange={handleChange("cognome")}
             margin="normal"
           />
-          <TextField
-            label="Email"
-            type="email"
-            fullWidth
-            required
-            value={form.email}
-            onChange={handleChange("email")}
-            margin="normal"
-          />
-          <TextField
-            label={editData ? "Nuova Password (lascia vuoto per non cambiare)" : "Password"}
-            type="password"
-            fullWidth
-            required={!editData}
-            value={form.password}
-            onChange={handleChange("password")}
-            margin="normal"
-            inputProps={{ minLength: 8 }}
-          />
-          <TextField
-            label="Ruolo"
-            select
-            fullWidth
-            value={form.ruolo}
-            onChange={handleChange("ruolo")}
-            margin="normal"
-          >
-            <MenuItem value="UTENTE">Utente</MenuItem>
-            <MenuItem value="ADMIN">Admin</MenuItem>
-          </TextField>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose} disabled={loading}>

@@ -49,12 +49,11 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-// ─── DOMAIN MODELS ──────────────────────────────────────────────
+// ─── USER (solo login) ──────────────────────────────────────────
 
 model User {
   id             String    @id @default(cuid())
   nome           String
-  cognome        String
   email          String    @unique
   hashedPassword String
   ruolo          Ruolo     @default(UTENTE)
@@ -62,9 +61,8 @@ model User {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  accounts  Account[]
-  sessions  Session[]
-  posizioni PosizioneIntestatario[]
+  accounts Account[]
+  sessions Session[]
 
   @@map("users")
 }
@@ -74,6 +72,21 @@ enum Ruolo {
   UTENTE
 }
 
+// ─── DOMAIN MODELS ──────────────────────────────────────────────
+
+model Intestatario {
+  id        String    @id @default(cuid())
+  nome      String
+  cognome   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  conti ContoIntestatario[]
+
+  @@map("intestatari")
+}
+
 model TipoConto {
   id        String    @id @default(cuid())
   nome      String    @unique
@@ -81,12 +94,12 @@ model TipoConto {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  posizioni Posizione[]
+  conti Conto[]
 
   @@map("tipi_conto")
 }
 
-model Posizione {
+model Conto {
   id          String    @id @default(cuid())
   nome        String
   tipoContoId String
@@ -97,36 +110,36 @@ model Posizione {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  tipoConto   TipoConto               @relation(fields: [tipoContoId], references: [id])
-  intestatari PosizioneIntestatario[]
+  tipoConto   TipoConto           @relation(fields: [tipoContoId], references: [id])
+  intestatari ContoIntestatario[]
   saldi       Saldo[]
 
-  @@map("posizioni")
+  @@map("conti")
 }
 
-model PosizioneIntestatario {
-  id          String @id @default(cuid())
-  posizioneId String
-  userId      String
+model ContoIntestatario {
+  id             String @id @default(cuid())
+  contoId        String
+  intestatarioId String
 
-  posizione Posizione @relation(fields: [posizioneId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conto        Conto        @relation(fields: [contoId], references: [id], onDelete: Cascade)
+  intestatario Intestatario @relation(fields: [intestatarioId], references: [id], onDelete: Cascade)
 
-  @@unique([posizioneId, userId])
-  @@map("posizione_intestatari")
+  @@unique([contoId, intestatarioId])
+  @@map("conto_intestatari")
 }
 
 model Saldo {
-  id          String   @id @default(cuid())
-  posizioneId String
-  anno        Int
-  mese        Int
-  valore      Decimal  @db.Decimal(15, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  contoId   String
+  anno      Int
+  mese      Int
+  valore    Decimal  @db.Decimal(15, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  posizione Posizione @relation(fields: [posizioneId], references: [id], onDelete: Cascade)
+  conto Conto @relation(fields: [contoId], references: [id], onDelete: Cascade)
 
-  @@unique([posizioneId, anno, mese])
+  @@unique([contoId, anno, mese])
   @@map("saldi")
 }
