@@ -21,6 +21,8 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import DownloadIcon from "@mui/icons-material/Download";
+import UploadIcon from "@mui/icons-material/Upload";
 import SaldoForm from "./SaldoForm";
 import EmptyState from "@/components/ui/EmptyState";
 import MonthYearPicker, { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
@@ -62,6 +64,7 @@ export default function SaldiTable() {
   const [formOpen, setFormOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
 
   const fetchData = useCallback(async () => {
@@ -101,6 +104,47 @@ export default function SaldiTable() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await fetch("/api/saldi/template");
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "template_saldi_storici.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setSnackbar({ open: true, message: "Errore nel download del template", severity: "error" });
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setImportLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/saldi/import", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        setSnackbar({ open: true, message: data.error ?? "Errore durante l'importazione", severity: "error" });
+        return;
+      }
+      const msg = `${data.count} saldi importati${data.errors?.length ? ` (${data.errors.length} errori)` : ""}`;
+      setSnackbar({ open: true, message: msg, severity: data.errors?.length ? "error" : "success" });
+      fetchData();
+    } catch {
+      setSnackbar({ open: true, message: "Errore di connessione durante l'importazione", severity: "error" });
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   const totale = saldi.reduce((sum, s) => sum + parseFloat(s.valore.toString()), 0);
 
   if (loading) {
@@ -117,8 +161,24 @@ export default function SaldiTable() {
         <Typography variant="h5" fontWeight={600}>
           Saldi
         </Typography>
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
           <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadTemplate}
+          >
+            Scarica Template
+          </Button>
+          <Button
+            component="label"
+            variant="outlined"
+            startIcon={importLoading ? <CircularProgress size={16} /> : <UploadIcon />}
+            disabled={importLoading}
+          >
+            Importa Storici
+            <input type="file" accept=".xlsx" hidden onChange={handleImport} />
+          </Button>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
