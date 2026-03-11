@@ -15,6 +15,13 @@ export const authConfig: NextAuthConfig = {
         return isLoggedIn;
       }
 
+      if (nextUrl.pathname.startsWith("/admin")) {
+        if (!isLoggedIn) return Response.redirect(new URL("/login", nextUrl));
+        const ruolo = (auth as { user?: { ruolo?: string } })?.user?.ruolo;
+        if (ruolo !== "ADMIN") return Response.redirect(new URL("/dashboard", nextUrl));
+        return true;
+      }
+
       if (isLoggedIn && nextUrl.pathname === "/login") {
         return Response.redirect(new URL("/dashboard", nextUrl));
       }
