@@ -16,11 +16,15 @@ import {
   CircularProgress,
   Alert,
   Snackbar,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 import SaldoForm from "./SaldoForm";
 import EmptyState from "@/components/ui/EmptyState";
 import MonthYearPicker, { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface SaldoWithConto {
   id: string;
@@ -40,7 +44,7 @@ interface SaldoWithConto {
 
 function getCurrentPeriod() {
   const now = new Date();
-  let mese = now.getMonth(); // 0-indexed → mese precedente
+  let mese = now.getMonth();
   let anno = now.getFullYear();
   if (mese === 0) {
     mese = 12;
@@ -56,6 +60,8 @@ export default function SaldiTable() {
   const [saldi, setSaldi] = useState<SaldoWithConto[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
 
   const fetchData = useCallback(async () => {
@@ -76,12 +82,26 @@ export default function SaldiTable() {
     fetchData();
   }, [fetchData]);
 
-  const totale = saldi.reduce((sum, s) => sum + parseFloat(s.valore.toString()), 0);
-
-  const handlePeriodChange = (newAnno: number, newMese: number) => {
-    setAnno(newAnno);
-    setMese(newMese);
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleteLoading(true);
+    try {
+      const res = await fetch(`/api/saldi/${deleteId}`, { method: "DELETE" });
+      if (res.ok) {
+        setSnackbar({ open: true, message: "Saldo eliminato", severity: "success" });
+        fetchData();
+      } else {
+        setSnackbar({ open: true, message: "Errore durante l'eliminazione", severity: "error" });
+      }
+    } catch {
+      setSnackbar({ open: true, message: "Errore di connessione", severity: "error" });
+    } finally {
+      setDeleteLoading(false);
+      setDeleteId(null);
+    }
   };
+
+  const totale = saldi.reduce((sum, s) => sum + parseFloat(s.valore.toString()), 0);
 
   if (loading) {
     return (
@@ -98,7 +118,7 @@ export default function SaldiTable() {
           Saldi
         </Typography>
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-          <MonthYearPicker anno={anno} mese={mese} onChange={handlePeriodChange} />
+          <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -121,6 +141,7 @@ export default function SaldiTable() {
                 <TableCell><strong>Rapporto / Istituto</strong></TableCell>
                 <TableCell><strong>Intestatari</strong></TableCell>
                 <TableCell align="right"><strong>Saldo</strong></TableCell>
+                <TableCell />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -150,6 +171,13 @@ export default function SaldiTable() {
                   <TableCell align="right" sx={{ fontWeight: 600, fontFamily: "monospace", fontSize: "0.95rem" }}>
                     {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
                   </TableCell>
+                  <TableCell align="right" sx={{ px: 1 }}>
+                    <Tooltip title="Elimina saldo">
+                      <IconButton size="small" color="error" onClick={() => setDeleteId(s.id)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
                 </TableRow>
               ))}
               <TableRow>
@@ -159,6 +187,7 @@ export default function SaldiTable() {
                 <TableCell align="right" sx={{ fontWeight: 700, fontFamily: "monospace", fontSize: "1rem" }}>
                   {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
                 </TableCell>
+                <TableCell />
               </TableRow>
             </TableBody>
           </Table>
@@ -174,6 +203,15 @@ export default function SaldiTable() {
         }}
         defaultAnno={anno}
         defaultMese={mese}
+      />
+
+      <ConfirmDialog
+        open={!!deleteId}
+        title="Elimina Saldo"
+        message="Sei sicuro di voler eliminare questo saldo? L'operazione non è reversibile."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteId(null)}
+        loading={deleteLoading}
       />
 
       <Snackbar
