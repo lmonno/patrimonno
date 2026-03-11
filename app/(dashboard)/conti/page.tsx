@@ -1,5 +1,5 @@
-import ContiTable from "@/components/conti/ContiTable";
+import RapportiTable from "@/components/conti/RapportiTable";
 
 export default function ContiPage() {
-  return <ContiTable />;
+  return <RapportiTable />;
 }
