@@ -62,6 +62,107 @@ docker-compose up --build     # avvia tutto in Docker
 
 ---
 
+## Struttura del Progetto
+
+```
+patrimonno/
+├── app/                          # Next.js App Router
+│   ├── (auth)/
+│   │   └── login/page.tsx        # Pagina di login
+│   ├── (dashboard)/              # Gruppo di route protette
+│   │   ├── layout.tsx            # Layout comune del dashboard (sidebar + topbar)
+│   │   ├── dashboard/page.tsx    # Pagina principale: riepilogo patrimonio
+│   │   ├── intestatari/page.tsx  # Gestione anagrafica intestatari
+│   │   ├── conti/page.tsx        # Gestione conti/posizioni finanziarie
+│   │   ├── saldi/page.tsx        # Inserimento e visualizzazione saldi mensili
+│   │   ├── tipi-conto/page.tsx   # Gestione tipologie di conto
+│   │   └── admin/
+│   │       └── utenti/page.tsx   # Gestione utenti (solo admin)
+│   ├── api/                      # API Routes (REST)
+│   │   ├── auth/[...nextauth]/route.ts   # Handlers NextAuth
+│   │   ├── intestatari/
+│   │   │   ├── route.ts          # GET lista, POST nuovo intestatario
+│   │   │   └── [id]/route.ts     # GET, PUT, DELETE per id
+│   │   ├── conti/
+│   │   │   ├── route.ts          # GET lista, POST nuovo conto
+│   │   │   └── [id]/route.ts     # GET, PUT, DELETE per id
+│   │   ├── rapporti/             # Rapporti conto↔intestatario
+│   │   │   ├── route.ts
+│   │   │   └── [id]/
+│   │   │       ├── route.ts
+│   │   │       └── conti/route.ts
+│   │   ├── saldi/
+│   │   │   ├── route.ts          # GET lista, POST/upsert saldo
+│   │   │   ├── [id]/route.ts     # PUT, DELETE per id
+│   │   │   └── previous/route.ts # GET saldo del mese precedente
+│   │   ├── tipi-conto/
+│   │   │   ├── route.ts
+│   │   │   └── [id]/route.ts
+│   │   └── admin/utenti/
+│   │       ├── route.ts          # GET lista utenti, POST nuovo utente
+│   │       └── [id]/route.ts     # PUT, DELETE per id
+│   ├── layout.tsx                # Root layout (providers, theme)
+│   ├── page.tsx                  # Root page (redirect a dashboard)
+│   ├── providers.tsx             # SessionProvider e ThemeProvider MUI
+│   └── theme.ts                  # Tema MUI personalizzato
+│
+├── components/                   # Componenti React riutilizzabili
+│   ├── admin/
+│   │   └── UtentiTable.tsx       # Tabella gestione utenti
+│   ├── conti/
+│   │   ├── ContoForm.tsx         # Form creazione/modifica conto
+│   │   ├── RapportiTable.tsx     # Tabella intestatari associati al conto
+│   │   └── RapportoForm.tsx      # Form associazione conto↔intestatario
+│   ├── intestatari/
+│   │   ├── IntestatariTable.tsx  # Tabella lista intestatari
+│   │   └── IntestatarioForm.tsx  # Form creazione/modifica intestatario
+│   ├── layout/
+│   │   ├── DashboardLayout.tsx   # Shell del layout (sidebar + contenuto)
+│   │   ├── Sidebar.tsx           # Menu di navigazione laterale
+│   │   └── TopBar.tsx            # Barra superiore con titolo e logout
+│   ├── saldi/
+│   │   ├── SaldiTable.tsx        # Tabella saldi con filtri per mese
+│   │   └── SaldoForm.tsx         # Form inserimento saldo (supporta modalità formula)
+│   ├── tipi-conto/
+│   │   ├── TipiContoTable.tsx    # Tabella tipi conto
+│   │   └── TipoContoForm.tsx     # Form creazione/modifica tipo conto
+│   └── ui/
+│       ├── ConfirmDialog.tsx     # Dialog di conferma azioni distruttive
+│       ├── EmptyState.tsx        # Componente stato vuoto generico
+│       └── MonthYearPicker.tsx   # Selettore mese/anno per filtri saldi
+│
+├── lib/                          # Utility e configurazioni condivise
+│   ├── auth.ts                   # Configurazione NextAuth (handler, session)
+│   ├── auth.config.ts            # Opzioni NextAuth (providers, callbacks)
+│   ├── prisma.ts                 # Singleton Prisma Client
+│   └── validations/              # Schemi Zod per validazione input
+│       ├── conto.ts
+│       ├── intestatario.ts
+│       ├── rapporto.ts
+│       ├── saldo.ts
+│       ├── tipo-conto.ts
+│       └── utente.ts
+│
+├── prisma/
+│   ├── schema.prisma             # Schema del database (modelli e relazioni)
+│   ├── seed.ts                   # Script di seed dati iniziali
+│   └── migrations/               # Migrazioni generate da Prisma
+│
+├── types/
+│   └── next-auth.d.ts            # Estensione tipi TypeScript per NextAuth
+│
+├── middleware.ts                 # Protezione route: reindirizza a login se non autenticato
+├── next.config.ts                # Configurazione Next.js
+├── prisma.config.ts              # Configurazione Prisma CLI
+├── docker-compose.yml            # Compose: app + PostgreSQL
+├── Dockerfile                    # Build immagine Docker per l'app
+├── docker-entrypoint.sh          # Entrypoint Docker: migra DB poi avvia app
+├── .env.example                  # Variabili d'ambiente documentate (senza valori segreti)
+└── tsconfig.json                 # Configurazione TypeScript
+```
+
+---
+
 ## Istruzioni per AI Assistants
 
 ### Prima di modificare
@@ -75,6 +176,9 @@ docker-compose up --build     # avvia tutto in Docker
 - Non aggiungere commenti che riformulano ciò che il codice fa già
 - Non committare `.env` o file con segreti
 - Non pushare su `main` senza esplicita istruzione
+
+### Aggiornamento struttura progetto
+- **Ogni volta che si aggiunge, sposta o elimina un file o una cartella**, aggiornare la sezione "Struttura del Progetto" in questo file `CLAUDE.md` nella stessa commit
 
 ### Azioni rischiose — chiedere conferma prima
 - Eliminazione di file o directory
