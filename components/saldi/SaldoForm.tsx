@@ -6,7 +6,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Button,
   Alert,
   Table,
@@ -16,18 +15,19 @@ import {
   TableHead,
   TableRow,
   Paper,
-  MenuItem,
   Box,
   Chip,
   Typography,
   CircularProgress,
   InputAdornment,
+  TextField,
 } from "@mui/material";
+import MonthYearPicker from "@/components/ui/MonthYearPicker";
 
 interface Conto {
   id: string;
   nome: string;
-  banca: string;
+  rapporto: { nome: string; istituto: string };
   tipoConto: { nome: string };
   intestatari: { intestatario: { nome: string; cognome: string } }[];
 }
@@ -40,18 +40,12 @@ interface SaldoFormProps {
   defaultMese: number;
 }
 
-const MESI = [
-  "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-  "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
-];
-
 function evaluateFormula(input: string, prev: number | null): number | null {
   if (!input.startsWith("=")) return null;
   const expr = input.slice(1).trim();
   const prevValue = prev ?? 0;
   try {
     const sanitized = expr.replace(/prev/gi, prevValue.toString());
-    // Valida che contenga solo numeri, operatori e spazi
     if (!/^[\d\s+\-*/().]+$/.test(sanitized)) return null;
     const result = new Function(`return (${sanitized})`)();
     if (typeof result !== "number" || !isFinite(result)) return null;
@@ -88,7 +82,6 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
       setConti(contiData);
       setPrevSaldi(prevData);
 
-      // Pre-compila: saldo corrente > saldo mese precedente > vuoto
       const currentMap: Record<string, string> = {};
       for (const s of currentData) {
         currentMap[s.contoId] = parseFloat(s.valore.toString()).toString();
@@ -134,13 +127,11 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
   const resolveValue = (contoId: string): string | null => {
     const raw = values[contoId]?.trim();
     if (!raw) return null;
-
     if (raw.startsWith("=")) {
       const prev = prevSaldi[contoId] ? parseFloat(prevSaldi[contoId]) : null;
       const result = evaluateFormula(raw, prev);
       return result !== null ? result.toString() : null;
     }
-
     const num = parseFloat(raw);
     return isFinite(num) ? num.toString() : null;
   };
@@ -205,29 +196,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
         )}
 
         <Box sx={{ display: "flex", gap: 2, mb: 3, mt: 1 }}>
-          <TextField
-            label="Mese"
-            select
-            value={mese}
-            onChange={(e) => handlePeriodChange(anno, parseInt(e.target.value))}
-            sx={{ minWidth: 160 }}
-            size="small"
-          >
-            {MESI.map((label, i) => (
-              <MenuItem key={i + 1} value={i + 1}>
-                {label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Anno"
-            type="number"
-            value={anno}
-            onChange={(e) => handlePeriodChange(parseInt(e.target.value), mese)}
-            sx={{ width: 120 }}
-            size="small"
-            slotProps={{ htmlInput: { min: 2000, max: 2100 } }}
-          />
+          <MonthYearPicker anno={anno} mese={mese} onChange={handlePeriodChange} />
         </Box>
 
         {loading ? (
@@ -236,7 +205,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
           </Box>
         ) : conti.length === 0 ? (
           <Typography color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
-            Nessun conto disponibile. Crea prima un conto.
+            Nessun conto disponibile. Crea prima un rapporto con almeno un conto.
           </Typography>
         ) : (
           <>
@@ -261,6 +230,9 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
                         <TableCell>
                           <Typography variant="body2" fontWeight={500}>
                             {c.nome}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {c.rapporto.nome} · {c.rapporto.istituto}
                           </Typography>
                           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
                             {c.intestatari.map((i) => (

@@ -99,17 +99,32 @@ model TipoConto {
   @@map("tipi_conto")
 }
 
+model Rapporto {
+  id        String    @id @default(cuid())
+  nome      String
+  istituto  String
+  note      String?   @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  conti Conto[]
+
+  @@map("rapporti")
+}
+
 model Conto {
   id          String    @id @default(cuid())
+  rapportoId  String
   nome        String
   tipoContoId String
   iban        String?
-  banca       String
   note        String?   @db.Text
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
+  rapporto    Rapporto            @relation(fields: [rapportoId], references: [id])
   tipoConto   TipoConto           @relation(fields: [tipoContoId], references: [id])
   intestatari ContoIntestatario[]
   saldi       Saldo[]

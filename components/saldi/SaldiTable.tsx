@@ -16,12 +16,11 @@ import {
   CircularProgress,
   Alert,
   Snackbar,
-  TextField,
-  MenuItem,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import SaldoForm from "./SaldoForm";
 import EmptyState from "@/components/ui/EmptyState";
+import MonthYearPicker, { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
 
 interface SaldoWithConto {
   id: string;
@@ -32,22 +31,16 @@ interface SaldoWithConto {
   conto: {
     id: string;
     nome: string;
-    banca: string;
     iban: string | null;
     tipoConto: { id: string; nome: string };
+    rapporto: { id: string; nome: string; istituto: string };
     intestatari: { intestatario: { id: string; nome: string; cognome: string } }[];
   };
 }
 
-const MESI = [
-  "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-  "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
-];
-
 function getCurrentPeriod() {
   const now = new Date();
-  // Default: mese precedente (il saldo più recente da compilare)
-  let mese = now.getMonth(); // 0-indexed → getMonth() di marzo = 2
+  let mese = now.getMonth(); // 0-indexed → mese precedente
   let anno = now.getFullYear();
   if (mese === 0) {
     mese = 12;
@@ -85,6 +78,11 @@ export default function SaldiTable() {
 
   const totale = saldi.reduce((sum, s) => sum + parseFloat(s.valore.toString()), 0);
 
+  const handlePeriodChange = (newAnno: number, newMese: number) => {
+    setAnno(newAnno);
+    setMese(newMese);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -100,29 +98,7 @@ export default function SaldiTable() {
           Saldi
         </Typography>
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-          <TextField
-            label="Mese"
-            select
-            value={mese}
-            onChange={(e) => setMese(parseInt(e.target.value))}
-            sx={{ minWidth: 140 }}
-            size="small"
-          >
-            {MESI.map((label, i) => (
-              <MenuItem key={i + 1} value={i + 1}>
-                {label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Anno"
-            type="number"
-            value={anno}
-            onChange={(e) => setAnno(parseInt(e.target.value))}
-            sx={{ width: 100 }}
-            size="small"
-            slotProps={{ htmlInput: { min: 2000, max: 2100 } }}
-          />
+          <MonthYearPicker anno={anno} mese={mese} onChange={handlePeriodChange} />
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -134,58 +110,59 @@ export default function SaldiTable() {
       </Box>
 
       {saldi.length === 0 ? (
-        <EmptyState message={`Nessun saldo per ${MESI[mese - 1]} ${anno}`} />
+        <EmptyState message={`Nessun saldo per ${MESI_LUNGHI[mese - 1]} ${anno}`} />
       ) : (
-        <>
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell><strong>Conto</strong></TableCell>
-                  <TableCell><strong>Tipo</strong></TableCell>
-                  <TableCell><strong>Banca</strong></TableCell>
-                  <TableCell><strong>Intestatari</strong></TableCell>
-                  <TableCell align="right"><strong>Saldo</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {saldi.map((s) => (
-                  <TableRow key={s.id} hover>
-                    <TableCell>{s.conto.nome}</TableCell>
-                    <TableCell>
-                      <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell>{s.conto.banca}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                        {s.conto.intestatari.map((i) => (
-                          <Chip
-                            key={i.intestatario.id}
-                            label={`${i.intestatario.nome} ${i.intestatario.cognome}`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        ))}
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontFamily: "monospace", fontSize: "0.95rem" }}>
-                      {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <TableRow>
-                  <TableCell colSpan={4} align="right">
-                    <Typography fontWeight={700}>Totale</Typography>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell><strong>Conto</strong></TableCell>
+                <TableCell><strong>Tipo</strong></TableCell>
+                <TableCell><strong>Rapporto / Istituto</strong></TableCell>
+                <TableCell><strong>Intestatari</strong></TableCell>
+                <TableCell align="right"><strong>Saldo</strong></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {saldi.map((s) => (
+                <TableRow key={s.id} hover>
+                  <TableCell>{s.conto.nome}</TableCell>
+                  <TableCell>
+                    <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
                   </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontFamily: "monospace", fontSize: "1rem" }}>
-                    {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                  <TableCell>
+                    <Typography variant="body2">{s.conto.rapporto.nome}</Typography>
+                    <Typography variant="caption" color="text.secondary">{s.conto.rapporto.istituto}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                      {s.conto.intestatari.map((i) => (
+                        <Chip
+                          key={i.intestatario.id}
+                          label={`${i.intestatario.nome} ${i.intestatario.cognome}`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600, fontFamily: "monospace", fontSize: "0.95rem" }}>
+                    {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
                   </TableCell>
                 </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </>
+              ))}
+              <TableRow>
+                <TableCell colSpan={4} align="right">
+                  <Typography fontWeight={700}>Totale</Typography>
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontFamily: "monospace", fontSize: "1rem" }}>
+                  {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       <SaldoForm

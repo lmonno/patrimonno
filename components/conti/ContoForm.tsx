@@ -34,23 +34,22 @@ interface ContoFormProps {
   open: boolean;
   onClose: () => void;
   onSave: () => void;
+  rapportoId: string;
   editData?: {
     id: string;
     nome: string;
     tipoContoId: string;
     iban: string | null;
-    banca: string;
     note: string | null;
     intestatari: { intestatario: Intestatario }[];
   } | null;
 }
 
-export default function ContoForm({ open, onClose, onSave, editData }: ContoFormProps) {
+export default function ContoForm({ open, onClose, onSave, rapportoId, editData }: ContoFormProps) {
   const [form, setForm] = useState({
     nome: "",
     tipoContoId: "",
     iban: "",
-    banca: "",
     note: "",
     intestatariIds: [] as string[],
   });
@@ -68,7 +67,6 @@ export default function ContoForm({ open, onClose, onSave, editData }: ContoForm
         nome: editData?.nome ?? "",
         tipoContoId: editData?.tipoContoId ?? "",
         iban: editData?.iban ?? "",
-        banca: editData?.banca ?? "",
         note: editData?.note ?? "",
         intestatariIds: editData?.intestatari?.map((i) => i.intestatario.id) ?? [],
       });
@@ -96,7 +94,7 @@ export default function ContoForm({ open, onClose, onSave, editData }: ContoForm
     setError("");
 
     try {
-      const url = editData ? `/api/conti/${editData.id}` : "/api/conti";
+      const url = editData ? `/api/conti/${editData.id}` : `/api/rapporti/${rapportoId}/conti`;
       const method = editData ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -106,7 +104,6 @@ export default function ContoForm({ open, onClose, onSave, editData }: ContoForm
           nome: form.nome,
           tipoContoId: form.tipoContoId,
           iban: form.iban || null,
-          banca: form.banca,
           note: form.note || null,
           intestatariIds: form.intestatariIds,
         }),
@@ -140,13 +137,14 @@ export default function ContoForm({ open, onClose, onSave, editData }: ContoForm
             </Alert>
           )}
           <TextField
-            label="Nome"
+            label="Nome conto"
             fullWidth
             required
             value={form.nome}
             onChange={handleChange("nome")}
             margin="normal"
             autoFocus
+            placeholder="es. Conto Corrente"
           />
           <TextField
             label="Tipo Conto"
@@ -168,14 +166,6 @@ export default function ContoForm({ open, onClose, onSave, editData }: ContoForm
             fullWidth
             value={form.iban}
             onChange={handleChange("iban")}
-            margin="normal"
-          />
-          <TextField
-            label="Banca / Istituto"
-            fullWidth
-            required
-            value={form.banca}
-            onChange={handleChange("banca")}
             margin="normal"
           />
           <TextField

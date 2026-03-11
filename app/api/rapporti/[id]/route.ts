@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { updateContoSchema } from "@/lib/validations/conto";
+import { updateRapportoSchema } from "@/lib/validations/rapporto";
 
 export async function GET(
   _request: NextRequest,
@@ -14,26 +14,31 @@ export async function GET(
     }
 
     const { id } = await params;
-    const conto = await prisma.conto.findUnique({
+    const rapporto = await prisma.rapporto.findUnique({
       where: { id, deletedAt: null },
       include: {
-        rapporto: { select: { id: true, nome: true, istituto: true } },
-        tipoConto: { select: { id: true, nome: true } },
-        intestatari: {
+        conti: {
+          where: { deletedAt: null },
           include: {
-            intestatario: { select: { id: true, nome: true, cognome: true } },
+            tipoConto: { select: { id: true, nome: true } },
+            intestatari: {
+              include: {
+                intestatario: { select: { id: true, nome: true, cognome: true } },
+              },
+            },
           },
+          orderBy: { nome: "asc" },
         },
       },
     });
 
-    if (!conto) {
-      return NextResponse.json({ error: "Conto non trovato" }, { status: 404 });
+    if (!rapporto) {
+      return NextResponse.json({ error: "Rapporto non trovato" }, { status: 404 });
     }
 
-    return NextResponse.json(conto);
+    return NextResponse.json(rapporto);
   } catch (error) {
-    console.error("Errore GET conto:", error);
+    console.error("Errore GET rapporto:", error);
     return NextResponse.json({ error: "Errore interno del server" }, { status: 500 });
   }
 }
@@ -50,7 +55,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const parsed = updateContoSchema.safeParse(body);
+    const parsed = updateRapportoSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Dati non validi", details: parsed.error.flatten() },
@@ -58,46 +63,27 @@ export async function PUT(
       );
     }
 
-    const { intestatariIds, ...rest } = parsed.data;
-
-    if (intestatariIds) {
-      await prisma.$transaction([
-        prisma.contoIntestatario.deleteMany({
-          where: { contoId: id },
-        }),
-        prisma.conto.update({
-          where: { id, deletedAt: null },
-          data: {
-            ...rest,
-            intestatari: {
-              create: intestatariIds.map((intestatarioId) => ({ intestatarioId })),
-            },
-          },
-        }),
-      ]);
-    } else {
-      await prisma.conto.update({
-        where: { id, deletedAt: null },
-        data: rest,
-      });
-    }
-
-    const conto = await prisma.conto.findUnique({
-      where: { id },
+    const rapporto = await prisma.rapporto.update({
+      where: { id, deletedAt: null },
+      data: parsed.data,
       include: {
-        rapporto: { select: { id: true, nome: true, istituto: true } },
-        tipoConto: { select: { id: true, nome: true } },
-        intestatari: {
+        conti: {
+          where: { deletedAt: null },
           include: {
-            intestatario: { select: { id: true, nome: true, cognome: true } },
+            tipoConto: { select: { id: true, nome: true } },
+            intestatari: {
+              include: {
+                intestatario: { select: { id: true, nome: true, cognome: true } },
+              },
+            },
           },
         },
       },
     });
 
-    return NextResponse.json(conto);
+    return NextResponse.json(rapporto);
   } catch (error) {
-    console.error("Errore PUT conto:", error);
+    console.error("Errore PUT rapporto:", error);
     return NextResponse.json({ error: "Errore interno del server" }, { status: 500 });
   }
 }
@@ -113,14 +99,23 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await prisma.conto.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    const now = new Date();
+
+    // Soft delete del rapporto e di tutti i suoi conti
+    await prisma.$transaction([
+      prisma.conto.updateMany({
+        where: { rapportoId: id, deletedAt: null },
+        data: { deletedAt: now },
+      }),
+      prisma.rapporto.update({
+        where: { id },
+        data: { deletedAt: now },
+      }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Errore DELETE conto:", error);
+    console.error("Errore DELETE rapporto:", error);
     return NextResponse.json({ error: "Errore interno del server" }, { status: 500 });
   }
 }
