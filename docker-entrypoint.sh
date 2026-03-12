@@ -17,7 +17,7 @@ for i in $(seq 1 30); do
 done
 
 echo "Esecuzione migrazioni Prisma..."
-npx prisma migrate deploy 2>&1 || echo "Migrazione fallita o già applicata"
+npx prisma migrate deploy
 
 echo "Esecuzione seed..."
 npx tsx prisma/seed.ts 2>&1 || echo "Seed fallito o già eseguito"
