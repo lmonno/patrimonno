@@ -21,7 +21,9 @@ import {
   CircularProgress,
   InputAdornment,
   TextField,
+  Tooltip,
 } from "@mui/material";
+import FunctionsIcon from "@mui/icons-material/Functions";
 import MonthYearPicker from "@/components/ui/MonthYearPicker";
 
 interface Conto {
@@ -77,20 +79,24 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
 
       const contiData: Conto[] = await contiRes.json();
       const prevData: Record<string, string> = await prevRes.json();
-      const currentData: { contoId: string; valore: string }[] = await currentRes.json();
+      const currentData: { contoId: string; valore: string; formula?: string | null }[] = await currentRes.json();
 
       setConti(contiData);
       setPrevSaldi(prevData);
 
-      const currentMap: Record<string, string> = {};
+      const currentMap: Record<string, { valore: string; formula?: string | null }> = {};
       for (const s of currentData) {
-        currentMap[s.contoId] = parseFloat(s.valore.toString()).toString();
+        currentMap[s.contoId] = {
+          valore: parseFloat(s.valore.toString()).toString(),
+          formula: s.formula,
+        };
       }
 
       const newValues: Record<string, string> = {};
       for (const c of contiData) {
         if (currentMap[c.id]) {
-          newValues[c.id] = currentMap[c.id];
+          // Se esiste una formula storicizzata, mostrala; altrimenti il valore numerico
+          newValues[c.id] = currentMap[c.id].formula ?? currentMap[c.id].valore;
         } else if (prevData[c.id]) {
           newValues[c.id] = prevData[c.id];
         } else {
@@ -140,12 +146,19 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
     setSaving(true);
     setError("");
 
-    const saldi: { contoId: string; anno: number; mese: number; valore: string }[] = [];
+    const saldi: { contoId: string; anno: number; mese: number; valore: string; formula?: string }[] = [];
 
     for (const c of conti) {
+      const raw = values[c.id]?.trim();
       const resolved = resolveValue(c.id);
       if (resolved !== null) {
-        saldi.push({ contoId: c.id, anno, mese, valore: resolved });
+        saldi.push({
+          contoId: c.id,
+          anno,
+          mese,
+          valore: resolved,
+          formula: raw?.startsWith("=") ? raw : undefined,
+        });
       }
     }
 
@@ -210,7 +223,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
         ) : (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Usa <code>=prev+100</code> per formule. <code>prev</code> = saldo mese precedente.
+              Usa <code>=prev+100</code> per formule. <code>prev</code> = saldo mese precedente. Le formule vengono storicizzate.
             </Typography>
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
@@ -225,6 +238,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
                 <TableBody>
                   {conti.map((c) => {
                     const preview = getResolvedPreview(c.id);
+                    const hasFormula = values[c.id]?.trim().startsWith("=");
                     return (
                       <TableRow key={c.id}>
                         <TableCell>
@@ -262,6 +276,13 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
                             placeholder="0,00"
                             slotProps={{
                               input: {
+                                startAdornment: hasFormula ? (
+                                  <InputAdornment position="start">
+                                    <Tooltip title="Formula attiva">
+                                      <FunctionsIcon fontSize="small" color="primary" />
+                                    </Tooltip>
+                                  </InputAdornment>
+                                ) : undefined,
                                 endAdornment: !preview ? (
                                   <InputAdornment position="end">€</InputAdornment>
                                 ) : undefined,

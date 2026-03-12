@@ -5,6 +5,7 @@ export const upsertSaldoSchema = z.object({
   anno: z.number().int().min(2000).max(2100),
   mese: z.number().int().min(1).max(12),
   valore: z.string().min(1, "Il valore è obbligatorio"),
+  formula: z.string().optional(),
 });
 
 export const bulkUpsertSaldoSchema = z.object({

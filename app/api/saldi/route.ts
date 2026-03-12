@@ -77,12 +77,14 @@ export async function POST(request: NextRequest) {
           },
           update: {
             valore: parseFloat(saldo.valore),
+            formula: saldo.formula ?? null,
           },
           create: {
             contoId: saldo.contoId,
             anno: saldo.anno,
             mese: saldo.mese,
             valore: parseFloat(saldo.valore),
+            formula: saldo.formula ?? null,
           },
         })
       )
