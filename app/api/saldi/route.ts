@@ -27,9 +27,8 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             nome: true,
-            iban: true,
             deletedAt: true,
-            rapporto: { select: { id: true, nome: true, istituto: true } },
+            rapporto: { select: { id: true, nome: true, istituto: true, iban: true } },
             tipoConto: { select: { id: true, nome: true } },
             intestatari: {
               include: {

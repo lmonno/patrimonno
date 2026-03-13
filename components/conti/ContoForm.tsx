@@ -39,7 +39,6 @@ interface ContoFormProps {
     id: string;
     nome: string;
     tipoContoId: string;
-    iban: string | null;
     note: string | null;
     intestatari: { intestatario: Intestatario }[];
   } | null;
@@ -49,7 +48,6 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
   const [form, setForm] = useState({
     nome: "",
     tipoContoId: "",
-    iban: "",
     note: "",
     intestatariIds: [] as string[],
   });
@@ -66,7 +64,6 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
       setForm({
         nome: editData?.nome ?? "",
         tipoContoId: editData?.tipoContoId ?? "",
-        iban: editData?.iban ?? "",
         note: editData?.note ?? "",
         intestatariIds: editData?.intestatari?.map((i) => i.intestatario.id) ?? [],
       });
@@ -103,7 +100,6 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
         body: JSON.stringify({
           nome: form.nome,
           tipoContoId: form.tipoContoId,
-          iban: form.iban || null,
           note: form.note || null,
           intestatariIds: form.intestatariIds,
         }),
@@ -161,13 +157,6 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
               </MenuItem>
             ))}
           </TextField>
-          <TextField
-            label="IBAN (opzionale)"
-            fullWidth
-            value={form.iban}
-            onChange={handleChange("iban")}
-            margin="normal"
-          />
           <TextField
             label="Note (opzionale)"
             fullWidth

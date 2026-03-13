@@ -17,7 +17,7 @@ export async function GET(
     const conto = await prisma.conto.findUnique({
       where: { id, deletedAt: null },
       include: {
-        rapporto: { select: { id: true, nome: true, istituto: true } },
+        rapporto: { select: { id: true, nome: true, istituto: true, iban: true } },
         tipoConto: { select: { id: true, nome: true } },
         intestatari: {
           include: {
@@ -85,7 +85,7 @@ export async function PUT(
     const conto = await prisma.conto.findUnique({
       where: { id },
       include: {
-        rapporto: { select: { id: true, nome: true, istituto: true } },
+        rapporto: { select: { id: true, nome: true, istituto: true, iban: true } },
         tipoConto: { select: { id: true, nome: true } },
         intestatari: {
           include: {

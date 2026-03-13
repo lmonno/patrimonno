@@ -103,6 +103,7 @@ model Rapporto {
   id        String    @id @default(cuid())
   nome      String
   istituto  String
+  iban      String?
   note      String?   @db.Text
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -118,7 +119,6 @@ model Conto {
   rapportoId  String
   nome        String
   tipoContoId String
-  iban        String?
   note        String?   @db.Text
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

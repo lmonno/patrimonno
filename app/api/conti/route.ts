@@ -12,7 +12,7 @@ export async function GET() {
     const conti = await prisma.conto.findMany({
       where: { deletedAt: null },
       include: {
-        rapporto: { select: { id: true, nome: true, istituto: true } },
+        rapporto: { select: { id: true, nome: true, istituto: true, iban: true } },
         tipoConto: { select: { id: true, nome: true } },
         intestatari: {
           include: {

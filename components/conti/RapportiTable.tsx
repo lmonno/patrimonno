@@ -42,7 +42,6 @@ interface Conto {
   id: string;
   nome: string;
   tipoContoId: string;
-  iban: string | null;
   note: string | null;
   rapportoId: string;
   tipoConto: { id: string; nome: string };
@@ -53,6 +52,7 @@ interface Rapporto {
   id: string;
   nome: string;
   istituto: string;
+  iban: string | null;
   note: string | null;
   conti: Conto[];
 }
@@ -168,7 +168,9 @@ export default function RapportiTable() {
                   <Box sx={{ flex: 1 }}>
                     <Typography fontWeight={600}>{rapporto.nome}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {rapporto.istituto} · {rapporto.conti.length} {rapporto.conti.length === 1 ? "conto" : "conti"}
+                      {rapporto.istituto}
+                      {rapporto.iban && <> · <Box component="span" sx={{ fontFamily: "monospace" }}>{rapporto.iban}</Box></>}
+                      {" · "}{rapporto.conti.length} {rapporto.conti.length === 1 ? "conto" : "conti"}
                     </Typography>
                   </Box>
                   <Box sx={{ display: "flex", gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
@@ -225,7 +227,6 @@ export default function RapportiTable() {
                         <TableRow>
                           <TableCell><strong>Nome conto</strong></TableCell>
                           <TableCell><strong>Tipo</strong></TableCell>
-                          <TableCell><strong>IBAN</strong></TableCell>
                           <TableCell><strong>Intestatari</strong></TableCell>
                           <TableCell align="right"><strong>Azioni</strong></TableCell>
                         </TableRow>
@@ -236,9 +237,6 @@ export default function RapportiTable() {
                             <TableCell>{conto.nome}</TableCell>
                             <TableCell>
                               <Chip label={conto.tipoConto.nome} size="small" variant="outlined" />
-                            </TableCell>
-                            <TableCell sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
-                              {conto.iban || "—"}
                             </TableCell>
                             <TableCell>
                               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>

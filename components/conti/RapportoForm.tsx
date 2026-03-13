@@ -19,12 +19,13 @@ interface RapportoFormProps {
     id: string;
     nome: string;
     istituto: string;
+    iban: string | null;
     note: string | null;
   } | null;
 }
 
 export default function RapportoForm({ open, onClose, onSave, editData }: RapportoFormProps) {
-  const [form, setForm] = useState({ nome: "", istituto: "", note: "" });
+  const [form, setForm] = useState({ nome: "", istituto: "", iban: "", note: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -33,6 +34,7 @@ export default function RapportoForm({ open, onClose, onSave, editData }: Rappor
       setForm({
         nome: editData?.nome ?? "",
         istituto: editData?.istituto ?? "",
+        iban: editData?.iban ?? "",
         note: editData?.note ?? "",
       });
       setError("");
@@ -59,6 +61,7 @@ export default function RapportoForm({ open, onClose, onSave, editData }: Rappor
         body: JSON.stringify({
           nome: form.nome,
           istituto: form.istituto,
+          iban: form.iban || null,
           note: form.note || null,
         }),
       });
@@ -108,6 +111,14 @@ export default function RapportoForm({ open, onClose, onSave, editData }: Rappor
             onChange={handleChange("istituto")}
             margin="normal"
             placeholder="es. Fineco Bank"
+          />
+          <TextField
+            label="IBAN (opzionale)"
+            fullWidth
+            value={form.iban}
+            onChange={handleChange("iban")}
+            margin="normal"
+            placeholder="es. IT60X0542811101000000123456"
           />
           <TextField
             label="Note (opzionale)"

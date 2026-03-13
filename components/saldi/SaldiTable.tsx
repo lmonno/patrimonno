@@ -42,9 +42,8 @@ interface SaldoWithConto {
   conto: {
     id: string;
     nome: string;
-    iban: string | null;
     tipoConto: { id: string; nome: string };
-    rapporto: { id: string; nome: string; istituto: string };
+    rapporto: { id: string; nome: string; istituto: string; iban: string | null };
     intestatari: { intestatario: { id: string; nome: string; cognome: string } }[];
   };
 }
