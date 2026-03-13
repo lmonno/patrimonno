@@ -1,14 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ExcelJS from "exceljs";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
+
+    const { searchParams } = new URL(request.url);
+    const now = new Date();
+
+    const startAnno = parseInt(searchParams.get("daAnno") ?? "2020");
+    const startMese = parseInt(searchParams.get("daMese") ?? "1");
+    const endAnno = parseInt(searchParams.get("aAnno") ?? now.getFullYear().toString());
+    const endMese = parseInt(searchParams.get("aMese") ?? (now.getMonth() + 1).toString());
 
     const conti = await prisma.conto.findMany({
       where: { deletedAt: null },
@@ -24,15 +32,12 @@ export async function GET() {
       orderBy: [{ rapporto: { nome: "asc" } }, { nome: "asc" }],
     });
 
-    // Colonne mesi: da gen 2020 al mese corrente
     const months: { anno: number; mese: number; label: string }[] = [];
-    const now = new Date();
-    const endAnno = now.getFullYear();
-    const endMese = now.getMonth() + 1;
 
-    for (let anno = 2020; anno <= endAnno; anno++) {
+    for (let anno = startAnno; anno <= endAnno; anno++) {
+      const firstMese = anno === startAnno ? startMese : 1;
       const lastMese = anno === endAnno ? endMese : 12;
-      for (let mese = 1; mese <= lastMese; mese++) {
+      for (let mese = firstMese; mese <= lastMese; mese++) {
         months.push({
           anno,
           mese,

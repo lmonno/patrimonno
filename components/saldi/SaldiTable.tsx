@@ -23,11 +23,11 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
-import DownloadIcon from "@mui/icons-material/Download";
 import UploadIcon from "@mui/icons-material/Upload";
 import EditIcon from "@mui/icons-material/Edit";
 import FunctionsIcon from "@mui/icons-material/Functions";
 import SaldoForm from "./SaldoForm";
+import ImportDialog from "./ImportDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import MonthYearPicker, { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -85,7 +85,7 @@ export default function SaldiTable() {
   const [formOpen, setFormOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [importLoading, setImportLoading] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
 
   // Inline editing
@@ -130,47 +130,6 @@ export default function SaldiTable() {
     } finally {
       setDeleteLoading(false);
       setDeleteId(null);
-    }
-  };
-
-  const handleDownloadTemplate = async () => {
-    try {
-      const res = await fetch("/api/saldi/template");
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "template_saldi_storici.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      setSnackbar({ open: true, message: "Errore nel download del template", severity: "error" });
-    }
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
-    setImportLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/saldi/import", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) {
-        setSnackbar({ open: true, message: data.error ?? "Errore durante l'importazione", severity: "error" });
-        return;
-      }
-      const msg = `${data.count} saldi importati${data.errors?.length ? ` (${data.errors.length} errori)` : ""}`;
-      setSnackbar({ open: true, message: msg, severity: data.errors?.length ? "error" : "success" });
-      fetchData();
-    } catch {
-      setSnackbar({ open: true, message: "Errore di connessione durante l'importazione", severity: "error" });
-    } finally {
-      setImportLoading(false);
     }
   };
 
@@ -261,19 +220,10 @@ export default function SaldiTable() {
           <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
           <Button
             variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={handleDownloadTemplate}
+            startIcon={<UploadIcon />}
+            onClick={() => setImportDialogOpen(true)}
           >
-            Scarica Template
-          </Button>
-          <Button
-            component="label"
-            variant="outlined"
-            startIcon={importLoading ? <CircularProgress size={16} /> : <UploadIcon />}
-            disabled={importLoading}
-          >
-            Importa Storici
-            <input type="file" accept=".xlsx" hidden onChange={handleImport} />
+            Importa
           </Button>
           <Button
             variant="contained"
@@ -430,6 +380,15 @@ export default function SaldiTable() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
         loading={deleteLoading}
+      />
+
+      <ImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onImportSuccess={(message, severity) => {
+          setSnackbar({ open: true, message, severity });
+          fetchData();
+        }}
       />
 
       <Snackbar
