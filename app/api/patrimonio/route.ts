@@ -111,18 +111,35 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // --- Risparmio medio mensile ---
+    // --- Risparmio medio mensile (ultimi 12 mesi) ---
+    // (saldo ultimo mese - saldo 12 mesi fa) / 12
     let risparmioMedioMensile = 0;
     const mesiConDati = storico.length;
     if (storico.length >= 2) {
-      const deltas: number[] = [];
-      for (let i = 1; i < storico.length; i++) {
-        deltas.push(storico[i].totale - storico[i - 1].totale);
+      const ultimo = storico[storico.length - 1];
+      // Cerco il saldo di esattamente 12 mesi prima dell'ultimo
+      let meseRif = ultimo.mese - 12;
+      let annoRif = ultimo.anno;
+      while (meseRif <= 0) {
+        meseRif += 12;
+        annoRif -= 1;
       }
-      risparmioMedioMensile =
-        Math.round(
-          (deltas.reduce((sum, d) => sum + d, 0) / deltas.length) * 100
-        ) / 100;
+      const dodiciMesiFa = storico.find(
+        (s) => s.anno === annoRif && s.mese === meseRif
+      );
+      if (dodiciMesiFa) {
+        risparmioMedioMensile =
+          Math.round(((ultimo.totale - dodiciMesiFa.totale) / 12) * 100) / 100;
+      } else {
+        // Se non c'è il saldo di 12 mesi fa, uso il primo disponibile
+        const primo = storico[0];
+        const nMesi =
+          (ultimo.anno - primo.anno) * 12 + (ultimo.mese - primo.mese);
+        if (nMesi > 0) {
+          risparmioMedioMensile =
+            Math.round(((ultimo.totale - primo.totale) / nMesi) * 100) / 100;
+        }
+      }
     }
 
     return NextResponse.json({
