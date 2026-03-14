@@ -65,13 +65,13 @@ export async function POST(request: NextRequest) {
 
         // ExcelJS restituisce un oggetto per le celle con formula/sharedFormula
         if (typeof rawVal === "object" && rawVal !== null) {
-          const obj = rawVal as Record<string, unknown>;
+          const obj = rawVal as unknown as Record<string, unknown>;
           if ("formula" in obj || "sharedFormula" in obj) {
             // Cella con formula: usa il risultato calcolato
             rawVal = obj.result ?? null;
             // Gestisci errori di formula (es. #REF!, #N/A, #VALUE!)
-            if (typeof rawVal === "object" && rawVal !== null && "error" in (rawVal as Record<string, unknown>)) {
-              righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: formula con errore "${(rawVal as Record<string, unknown>).error}"`);
+            if (typeof rawVal === "object" && rawVal !== null && "error" in (rawVal as unknown as Record<string, unknown>)) {
+              righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: formula con errore "${(rawVal as unknown as Record<string, unknown>).error}"`);
               continue;
             }
           } else if ("richText" in obj) {
