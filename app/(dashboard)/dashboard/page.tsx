@@ -10,11 +10,24 @@ import {
   Grid,
   CircularProgress,
   Chip,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import SavingsIcon from "@mui/icons-material/Savings";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import MonthYearPicker from "@/components/ui/MonthYearPicker";
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 
 interface Intestatario {
   id: string;
@@ -29,9 +42,18 @@ interface Patrimonio {
   storico: { anno: number; mese: number; totale: number }[];
 }
 
+interface EntrataStorico {
+  anno: number;
+  mese: number;
+  totale: number;
+  mediana: number;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const user = session?.user;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   // Default: mese precedente
   const now = new Date();
@@ -43,7 +65,9 @@ export default function DashboardPage() {
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [patrimonio, setPatrimonio] = useState<Patrimonio | null>(null);
+  const [entrateStorico, setEntrateStorico] = useState<EntrataStorico[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingEntrate, setLoadingEntrate] = useState(true);
 
   // Carica intestatari al mount
   useEffect(() => {
@@ -70,9 +94,28 @@ export default function DashboardPage() {
     }
   }, [selectedIds, anno, mese]);
 
+  // Carica storico entrate
+  const fetchEntrateStorico = useCallback(async () => {
+    setLoadingEntrate(true);
+    try {
+      const queryParams = new URLSearchParams({ anno: String(anno), mese: String(mese) });
+      if (selectedIds.length > 0) queryParams.set("intestatariIds", selectedIds.join(","));
+      const res = await fetch(`/api/entrate/storico?${queryParams}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEntrateStorico(data.storico);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingEntrate(false);
+    }
+  }, [selectedIds, anno, mese]);
+
   useEffect(() => {
     fetchPatrimonio();
-  }, [fetchPatrimonio]);
+    fetchEntrateStorico();
+  }, [fetchPatrimonio, fetchEntrateStorico]);
 
   const toggleIntestatario = (id: string) => {
     setSelectedIds((prev) =>
@@ -86,6 +129,16 @@ export default function DashboardPage() {
     Math.round(value).toLocaleString("de-DE") + " €";
 
   const risparmioPositivo = (patrimonio?.risparmioMedioMensile ?? 0) >= 0;
+
+  // Dati grafico
+  const chartData = entrateStorico.map((e) => ({
+    label: `${String(e.mese).padStart(2, "0")}/${String(e.anno).slice(-2)}`,
+    entrate: e.totale,
+    mediana: e.mediana,
+  }));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const formatTooltipValue = (value: any) => formatEuro(Number(value));
 
   return (
     <>
@@ -177,6 +230,65 @@ export default function DashboardPage() {
           </Grid>
         </Grid>
       )}
+
+      {/* Grafico Entrate */}
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+          Entrate mensili
+        </Typography>
+        {loadingEntrate ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : chartData.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+            Nessun dato sulle entrate disponibile
+          </Typography>
+        ) : (
+          <Card>
+            <CardContent sx={{ px: isMobile ? 1 : 3 }}>
+              <ResponsiveContainer width="100%" height={isMobile ? 280 : 350}>
+                <ComposedChart data={chartData} margin={{ top: 10, right: isMobile ? 5 : 20, left: isMobile ? -15 : 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                    interval={isMobile ? 2 : 0}
+                    angle={isMobile ? -45 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                  />
+                  <YAxis
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                    tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
+                  />
+                  <Tooltip
+                    formatter={formatTooltipValue}
+                    labelStyle={{ fontWeight: 600 }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: isMobile ? 11 : 13 }}
+                  />
+                  <Bar
+                    dataKey="entrate"
+                    name="Entrate"
+                    fill="#2e7d32"
+                    opacity={0.7}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Line
+                    dataKey="mediana"
+                    name="Mediana 12 mesi"
+                    stroke="#ff9800"
+                    strokeWidth={2.5}
+                    dot={false}
+                    type="monotone"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+      </Box>
     </>
   );
 }
