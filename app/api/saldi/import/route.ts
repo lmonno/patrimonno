@@ -60,7 +60,25 @@ export async function POST(request: NextRequest) {
 
       for (const { colIndex, anno, mese } of monthColumns) {
         const cell = row.getCell(colIndex);
-        const rawVal = cell.value;
+        let rawVal = cell.value;
+        if (rawVal === null || rawVal === undefined || rawVal === "") continue;
+
+        // ExcelJS restituisce un oggetto per le celle con formula/sharedFormula
+        if (typeof rawVal === "object" && rawVal !== null) {
+          const obj = rawVal as Record<string, unknown>;
+          if ("formula" in obj || "sharedFormula" in obj) {
+            // Cella con formula: usa il risultato calcolato
+            rawVal = obj.result ?? null;
+            // Gestisci errori di formula (es. #REF!, #N/A, #VALUE!)
+            if (typeof rawVal === "object" && rawVal !== null && "error" in (rawVal as Record<string, unknown>)) {
+              righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: formula con errore "${(rawVal as Record<string, unknown>).error}"`);
+              continue;
+            }
+          } else if ("richText" in obj) {
+            // Cella con rich text: estrai il testo
+            rawVal = (obj.richText as Array<{ text: string }>).map((r) => r.text).join("");
+          }
+        }
         if (rawVal === null || rawVal === undefined || rawVal === "") continue;
 
         const valoreStr = typeof rawVal === "number" ? rawVal : String(rawVal).replace(",", ".");
