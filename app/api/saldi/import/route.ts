@@ -75,10 +75,10 @@ export async function POST(request: NextRequest) {
               righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: formula con errore "${(formulaResult as Record<string, unknown>).error}"`);
               continue;
             }
-            rawVal = formulaResult as typeof rawVal;
+            rawVal = formulaResult as unknown as typeof rawVal;
           } else if ("richText" in obj) {
             // Cella con rich text: estrai il testo
-            rawVal = (obj.richText as Array<{ text: string }>).map((r) => r.text).join("") as typeof rawVal;
+            rawVal = (obj.richText as Array<{ text: string }>).map((r) => r.text).join("") as unknown as typeof rawVal;
           }
         }
         if (rawVal === null || rawVal === undefined || rawVal === "") continue;
