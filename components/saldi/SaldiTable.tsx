@@ -20,6 +20,12 @@ import {
   Tooltip,
   TextField,
   InputAdornment,
+  Card,
+  CardContent,
+  Stack,
+  Divider,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -200,6 +206,51 @@ export default function SaldiTable() {
   };
 
   const totale = saldi.reduce((sum, s) => sum + parseFloat(s.valore.toString()), 0);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  const renderEditField = (s: SaldoWithConto) => {
+    const editPreview = editValue.trim().startsWith("=")
+      ? (() => {
+          const prev = prevSaldi[s.contoId] ? parseFloat(prevSaldi[s.contoId]) : null;
+          const result = evaluateFormula(editValue.trim(), prev);
+          return result !== null
+            ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €`
+            : "Formula non valida";
+        })()
+      : null;
+
+    return (
+      <TextField
+        inputRef={editInputRef}
+        size="small"
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") saveInlineEdit(s);
+          if (e.key === "Escape") cancelEdit();
+        }}
+        onBlur={() => saveInlineEdit(s)}
+        disabled={editSaving}
+        helperText={editPreview}
+        error={editPreview === "Formula non valida"}
+        slotProps={{
+          input: {
+            startAdornment: editValue.trim().startsWith("=") ? (
+              <InputAdornment position="start">
+                <FunctionsIcon fontSize="small" color="primary" />
+              </InputAdornment>
+            ) : undefined,
+            endAdornment: !editPreview ? (
+              <InputAdornment position="end">€</InputAdornment>
+            ) : undefined,
+          },
+        }}
+        sx={{ width: isMobile ? "100%" : 180 }}
+        autoFocus
+      />
+    );
+  };
 
   if (loading) {
     return (
@@ -221,6 +272,7 @@ export default function SaldiTable() {
             variant="outlined"
             startIcon={<UploadIcon />}
             onClick={() => setImportDialogOpen(true)}
+            size={isMobile ? "small" : "medium"}
           >
             Importa
           </Button>
@@ -228,15 +280,95 @@ export default function SaldiTable() {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setFormOpen(true)}
+            size={isMobile ? "small" : "medium"}
           >
-            Inserisci Saldi
+            {isMobile ? "Nuovo" : "Inserisci Saldi"}
           </Button>
         </Box>
       </Box>
 
       {saldi.length === 0 ? (
         <EmptyState message={`Nessun saldo per ${MESI_LUNGHI[mese - 1]} ${anno}`} />
+      ) : isMobile ? (
+        /* ─── MOBILE: Card layout ─── */
+        <Stack spacing={1.5}>
+          {saldi.map((s) => {
+            const isEditing = editingId === s.id;
+            return (
+              <Card key={s.id} variant="outlined">
+                <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+                  {/* Riga principale: nome conto + saldo */}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body1" fontWeight={600} noWrap>
+                        {s.conto.nome}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap>
+                        {s.conto.rapporto.nome} · {s.conto.rapporto.istituto}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+                      {isEditing ? (
+                        renderEditField(s)
+                      ) : (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          {s.formula && (
+                            <FunctionsIcon fontSize="small" color="primary" sx={{ opacity: 0.7 }} />
+                          )}
+                          <Typography
+                            variant="body1"
+                            fontWeight={700}
+                            fontFamily="monospace"
+                            onClick={() => startEdit(s)}
+                            sx={{ cursor: "pointer" }}
+                          >
+                            {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+
+                  {/* Tags: tipo + intestatari + azioni */}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                      <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
+                      {s.conto.intestatari.map((i) => (
+                        <Chip
+                          key={i.intestatario.id}
+                          label={`${i.intestatario.nome} ${i.intestatario.cognome[0]}.`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                    <Box sx={{ display: "flex", gap: 0 }}>
+                      <IconButton size="small" onClick={() => startEdit(s)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => setDeleteId(s.id)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            );
+          })}
+
+          {/* Totale mobile */}
+          <Paper sx={{ p: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography fontWeight={700}>Totale</Typography>
+              <Typography fontWeight={700} fontFamily="monospace" fontSize="1.1rem">
+                {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+              </Typography>
+            </Box>
+          </Paper>
+        </Stack>
       ) : (
+        /* ─── DESKTOP: Table layout ─── */
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -287,34 +419,7 @@ export default function SaldiTable() {
                     </TableCell>
                     <TableCell align="right" sx={{ minWidth: 200 }}>
                       {isEditing ? (
-                        <TextField
-                          inputRef={editInputRef}
-                          size="small"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveInlineEdit(s);
-                            if (e.key === "Escape") cancelEdit();
-                          }}
-                          onBlur={() => saveInlineEdit(s)}
-                          disabled={editSaving}
-                          helperText={editPreview}
-                          error={editPreview === "Formula non valida"}
-                          slotProps={{
-                            input: {
-                              startAdornment: editValue.trim().startsWith("=") ? (
-                                <InputAdornment position="start">
-                                  <FunctionsIcon fontSize="small" color="primary" />
-                                </InputAdornment>
-                              ) : undefined,
-                              endAdornment: !editPreview ? (
-                                <InputAdornment position="end">€</InputAdornment>
-                              ) : undefined,
-                            },
-                          }}
-                          sx={{ width: 180 }}
-                          autoFocus
-                        />
+                        renderEditField(s)
                       ) : (
                         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 0.5 }}>
                           {s.formula && (
