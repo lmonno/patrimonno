@@ -22,6 +22,11 @@ import {
   InputAdornment,
   TextField,
   Tooltip,
+  Card,
+  CardContent,
+  Stack,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import FunctionsIcon from "@mui/icons-material/Functions";
 import MonthYearPicker from "@/components/ui/MonthYearPicker";
@@ -198,8 +203,41 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
     return result !== null ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €` : "Formula non valida";
   };
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  const renderSaldoField = (c: Conto) => {
+    const preview = getResolvedPreview(c.id);
+    const hasFormula = values[c.id]?.trim().startsWith("=");
+    return (
+      <TextField
+        size="small"
+        fullWidth
+        value={values[c.id] ?? ""}
+        onChange={(e) => handleValueChange(c.id, e.target.value)}
+        placeholder="0,00"
+        slotProps={{
+          input: {
+            startAdornment: hasFormula ? (
+              <InputAdornment position="start">
+                <Tooltip title="Formula attiva">
+                  <FunctionsIcon fontSize="small" color="primary" />
+                </Tooltip>
+              </InputAdornment>
+            ) : undefined,
+            endAdornment: !preview ? (
+              <InputAdornment position="end">€</InputAdornment>
+            ) : undefined,
+          },
+        }}
+        helperText={preview}
+        error={preview === "Formula non valida"}
+      />
+    );
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}>
       <DialogTitle>Inserimento Saldi</DialogTitle>
       <DialogContent>
         {error && (
@@ -223,23 +261,52 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
         ) : (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Usa <code>=prev+100</code> per formule. <code>prev</code> = saldo mese precedente. Le formule vengono storicizzate.
+              Usa <code>=prev+100</code> per formule. <code>prev</code> = saldo mese precedente.
             </Typography>
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell><strong>Conto</strong></TableCell>
-                    <TableCell><strong>Tipo</strong></TableCell>
-                    <TableCell><strong>Precedente</strong></TableCell>
-                    <TableCell sx={{ width: 220 }}><strong>Saldo</strong></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {conti.map((c) => {
-                    const preview = getResolvedPreview(c.id);
-                    const hasFormula = values[c.id]?.trim().startsWith("=");
-                    return (
+
+            {isMobile ? (
+              /* ─── MOBILE: Card layout ─── */
+              <Stack spacing={1.5}>
+                {conti.map((c) => (
+                  <Card key={c.id} variant="outlined">
+                    <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" fontWeight={600} noWrap>
+                            {c.nome}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {c.rapporto.nome} · {c.rapporto.istituto}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: "flex", gap: 0.5, flexShrink: 0, alignItems: "center" }}>
+                          <Chip label={c.tipoConto.nome} size="small" variant="outlined" />
+                        </Box>
+                      </Box>
+                      {prevSaldi[c.id] && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+                          Prec: {parseFloat(prevSaldi[c.id]).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                        </Typography>
+                      )}
+                      {renderSaldoField(c)}
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              /* ─── DESKTOP: Table layout ─── */
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><strong>Conto</strong></TableCell>
+                      <TableCell><strong>Tipo</strong></TableCell>
+                      <TableCell><strong>Precedente</strong></TableCell>
+                      <TableCell sx={{ width: 220 }}><strong>Saldo</strong></TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {conti.map((c) => (
                       <TableRow key={c.id}>
                         <TableCell>
                           <Typography variant="body2" fontWeight={500}>
@@ -268,36 +335,14 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
                             : "—"}
                         </TableCell>
                         <TableCell>
-                          <TextField
-                            size="small"
-                            fullWidth
-                            value={values[c.id] ?? ""}
-                            onChange={(e) => handleValueChange(c.id, e.target.value)}
-                            placeholder="0,00"
-                            slotProps={{
-                              input: {
-                                startAdornment: hasFormula ? (
-                                  <InputAdornment position="start">
-                                    <Tooltip title="Formula attiva">
-                                      <FunctionsIcon fontSize="small" color="primary" />
-                                    </Tooltip>
-                                  </InputAdornment>
-                                ) : undefined,
-                                endAdornment: !preview ? (
-                                  <InputAdornment position="end">€</InputAdornment>
-                                ) : undefined,
-                              },
-                            }}
-                            helperText={preview}
-                            error={preview === "Formula non valida"}
-                          />
+                          {renderSaldoField(c)}
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </>
         )}
       </DialogContent>
