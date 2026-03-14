@@ -83,7 +83,7 @@ export default function DashboardPage() {
   const tuttiSelezionati = selectedIds.length === 0;
 
   const formatEuro = (value: number) =>
-    value.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+    Math.round(value).toLocaleString("de-DE") + " €";
 
   const risparmioPositivo = (patrimonio?.risparmioMedioMensile ?? 0) >= 0;
 
