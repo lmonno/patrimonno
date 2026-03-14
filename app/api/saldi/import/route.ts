@@ -68,15 +68,17 @@ export async function POST(request: NextRequest) {
           const obj = rawVal as unknown as Record<string, unknown>;
           if ("formula" in obj || "sharedFormula" in obj) {
             // Cella con formula: usa il risultato calcolato
-            rawVal = obj.result ?? null;
+            const formulaResult = obj.result;
+            if (formulaResult === null || formulaResult === undefined || formulaResult === "") continue;
             // Gestisci errori di formula (es. #REF!, #N/A, #VALUE!)
-            if (typeof rawVal === "object" && rawVal !== null && "error" in (rawVal as unknown as Record<string, unknown>)) {
-              righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: formula con errore "${(rawVal as unknown as Record<string, unknown>).error}"`);
+            if (typeof formulaResult === "object" && formulaResult !== null && "error" in (formulaResult as Record<string, unknown>)) {
+              righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: formula con errore "${(formulaResult as Record<string, unknown>).error}"`);
               continue;
             }
+            rawVal = formulaResult as typeof rawVal;
           } else if ("richText" in obj) {
             // Cella con rich text: estrai il testo
-            rawVal = (obj.richText as Array<{ text: string }>).map((r) => r.text).join("");
+            rawVal = (obj.richText as Array<{ text: string }>).map((r) => r.text).join("") as typeof rawVal;
           }
         }
         if (rawVal === null || rawVal === undefined || rawVal === "") continue;
