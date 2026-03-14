@@ -19,6 +19,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import CategoryIcon from "@mui/icons-material/Category";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import PaymentsIcon from "@mui/icons-material/Payments";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 
 const DRAWER_WIDTH = 260;
@@ -28,6 +29,7 @@ const navItems = [
   { label: "Intestatari", href: "/intestatari", icon: <PeopleIcon /> },
   { label: "Rapporti", href: "/conti", icon: <AccountBalanceIcon /> },
   { label: "Saldi", href: "/saldi", icon: <TrendingUpIcon /> },
+  { label: "Entrate", href: "/entrate", icon: <PaymentsIcon /> },
   { label: "Tipi Conto", href: "/tipi-conto", icon: <CategoryIcon /> },
 ];
 

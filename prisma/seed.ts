@@ -38,6 +38,16 @@ async function main() {
     },
   });
 
+  // Tipi Entrata
+  const tipiEntrata = ["Stipendio", "Cedole/Dividendi", "Contributi", "Affitto"];
+  for (const nome of tipiEntrata) {
+    await prisma.tipoEntrata.upsert({
+      where: { nome },
+      update: {},
+      create: { nome },
+    });
+  }
+
   console.log("Seed completato con successo!");
 }
 

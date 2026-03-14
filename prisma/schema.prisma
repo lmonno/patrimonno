@@ -82,7 +82,8 @@ model Intestatario {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  conti ContoIntestatario[]
+  conti    ContoIntestatario[]
+  entrate  Entrata[]
 
   @@map("intestatari")
 }
@@ -158,4 +159,36 @@ model Saldo {
 
   @@unique([contoId, anno, mese])
   @@map("saldi")
+}
+
+// ─── ENTRATE ──────────────────────────────────────────────────
+
+model TipoEntrata {
+  id        String    @id @default(cuid())
+  nome      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  entrate Entrata[]
+
+  @@map("tipi_entrata")
+}
+
+model Entrata {
+  id              String   @id @default(cuid())
+  intestatarioId  String
+  tipoEntrataId   String
+  anno            Int
+  mese            Int
+  valore          Decimal  @db.Decimal(15, 2)
+  note            String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  intestatario Intestatario @relation(fields: [intestatarioId], references: [id], onDelete: Cascade)
+  tipoEntrata  TipoEntrata  @relation(fields: [tipoEntrataId], references: [id], onDelete: Cascade)
+
+  @@unique([intestatarioId, tipoEntrataId, anno, mese])
+  @@map("entrate")
 }

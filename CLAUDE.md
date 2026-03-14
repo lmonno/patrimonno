@@ -37,6 +37,7 @@ App web personale per il monitoraggio del patrimonio familiare.
 - Sempre usare **TypeScript** (file `.ts` e `.tsx`)
 - Gestione errori con **try/catch** su tutte le API routes
 - Validazione input con **Zod**
+- **Mobile-first:** tutte le pagine e i form devono essere ottimizzati per cellulare (card layout su mobile, tabella su desktop; dialog fullScreen su mobile; usare `useMediaQuery` con breakpoint `md`)
 
 ---
 
