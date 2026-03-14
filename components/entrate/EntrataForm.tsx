@@ -21,12 +21,14 @@ import {
   CircularProgress,
   InputAdornment,
   TextField,
+  Tooltip,
   Card,
   CardContent,
   Stack,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import FunctionsIcon from "@mui/icons-material/Functions";
 import MonthYearPicker from "@/components/ui/MonthYearPicker";
 
 interface Intestatario {
@@ -48,12 +50,33 @@ interface EntrataFormProps {
   defaultMese: number;
 }
 
+function evaluateFormula(input: string, prev: number | null): number | null {
+  if (!input.startsWith("=")) return null;
+  const expr = input.slice(1).trim();
+  const prevValue = prev ?? 0;
+  try {
+    const sanitized = expr.replace(/prev/gi, prevValue.toString());
+    if (!/^[\d\s+\-*/().]+$/.test(sanitized)) return null;
+    const result = new Function(`return (${sanitized})`)();
+    if (typeof result !== "number" || !isFinite(result)) return null;
+    return Math.round(result * 100) / 100;
+  } catch {
+    return null;
+  }
+}
+
+function getPreviousMonth(anno: number, mese: number) {
+  if (mese === 1) return { anno: anno - 1, mese: 12 };
+  return { anno, mese: mese - 1 };
+}
+
 export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaultMese }: EntrataFormProps) {
   const [anno, setAnno] = useState(defaultAnno);
   const [mese, setMese] = useState(defaultMese);
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
   const [tipiEntrata, setTipiEntrata] = useState<TipoEntrata[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [prevValues, setPrevValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -67,19 +90,30 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     setLoading(true);
     setError("");
     try {
-      const [intRes, tipiRes, currentRes] = await Promise.all([
+      const prev = getPreviousMonth(a, m);
+      const [intRes, tipiRes, currentRes, prevRes] = await Promise.all([
         fetch("/api/intestatari"),
         fetch("/api/tipi-entrata"),
         fetch(`/api/entrate?anno=${a}&mese=${m}`),
+        fetch(`/api/entrate?anno=${prev.anno}&mese=${prev.mese}`),
       ]);
 
       const intData: Intestatario[] = await intRes.json();
       const tipiData: TipoEntrata[] = await tipiRes.json();
       const currentData: { intestatarioId: string; tipoEntrataId: string; valore: string }[] = await currentRes.json();
+      const prevData: { intestatarioId: string; tipoEntrataId: string; valore: string }[] = await prevRes.json();
 
       setIntestatari(intData);
       setTipiEntrata(tipiData);
 
+      // Mappa valori precedenti
+      const prevMap: Record<string, string> = {};
+      for (const e of prevData) {
+        prevMap[makeKey(e.intestatarioId, e.tipoEntrataId)] = parseFloat(e.valore.toString()).toString();
+      }
+      setPrevValues(prevMap);
+
+      // Pre-popola: valore corrente > valore precedente > vuoto
       const newValues: Record<string, string> = {};
       for (const int of intData) {
         for (const tipo of tipiData) {
@@ -87,7 +121,13 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
           const existing = currentData.find(
             (e) => e.intestatarioId === int.id && e.tipoEntrataId === tipo.id
           );
-          newValues[key] = existing ? parseFloat(existing.valore.toString()).toString() : "";
+          if (existing) {
+            newValues[key] = parseFloat(existing.valore.toString()).toString();
+          } else if (prevMap[key]) {
+            newValues[key] = prevMap[key];
+          } else {
+            newValues[key] = "";
+          }
         }
       }
       setValues(newValues);
@@ -117,6 +157,26 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     setError("");
   };
 
+  const resolveValue = (key: string): string | null => {
+    const raw = values[key]?.trim();
+    if (!raw) return null;
+    if (raw.startsWith("=")) {
+      const prev = prevValues[key] ? parseFloat(prevValues[key]) : null;
+      const result = evaluateFormula(raw, prev);
+      return result !== null ? result.toString() : null;
+    }
+    const num = parseFloat(raw);
+    return isFinite(num) ? num.toString() : null;
+  };
+
+  const getResolvedPreview = (key: string): string | null => {
+    const raw = values[key]?.trim();
+    if (!raw || !raw.startsWith("=")) return null;
+    const prev = prevValues[key] ? parseFloat(prevValues[key]) : null;
+    const result = evaluateFormula(raw, prev);
+    return result !== null ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €` : "Formula non valida";
+  };
+
   const handleSubmit = async () => {
     setSaving(true);
     setError("");
@@ -126,17 +186,16 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     for (const int of intestatari) {
       for (const tipo of tipiEntrata) {
         const key = makeKey(int.id, tipo.id);
-        const raw = values[key]?.trim();
-        if (!raw) continue;
-        const num = parseFloat(raw);
-        if (!isFinite(num)) continue;
-        entrate.push({
-          intestatarioId: int.id,
-          tipoEntrataId: tipo.id,
-          anno,
-          mese,
-          valore: num.toString(),
-        });
+        const resolved = resolveValue(key);
+        if (resolved !== null) {
+          entrate.push({
+            intestatarioId: int.id,
+            tipoEntrataId: tipo.id,
+            anno,
+            mese,
+            valore: resolved,
+          });
+        }
       }
     }
 
@@ -170,6 +229,9 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
 
   const renderField = (intId: string, tipoId: string) => {
     const key = makeKey(intId, tipoId);
+    const preview = getResolvedPreview(key);
+    const hasFormula = values[key]?.trim().startsWith("=");
+    const prevVal = prevValues[key];
     return (
       <TextField
         size="small"
@@ -179,9 +241,20 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
         placeholder="0,00"
         slotProps={{
           input: {
-            endAdornment: <InputAdornment position="end">€</InputAdornment>,
+            startAdornment: hasFormula ? (
+              <InputAdornment position="start">
+                <Tooltip title="Formula attiva">
+                  <FunctionsIcon fontSize="small" color="primary" />
+                </Tooltip>
+              </InputAdornment>
+            ) : undefined,
+            endAdornment: !preview ? (
+              <InputAdornment position="end">€</InputAdornment>
+            ) : undefined,
           },
         }}
+        helperText={preview ?? (prevVal ? `Prec: ${parseFloat(prevVal).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €` : undefined)}
+        error={preview === "Formula non valida"}
       />
     );
   };
@@ -208,63 +281,71 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
           <Typography color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
             Nessun intestatario o tipo entrata disponibile.
           </Typography>
-        ) : isMobile ? (
-          /* ─── MOBILE: Card layout ─── */
-          <Stack spacing={1.5}>
-            {intestatari.map((int) => (
-              <Card key={int.id} variant="outlined">
-                <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
-                  <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-                    {int.nome} {int.cognome}
-                  </Typography>
-                  <Stack spacing={1}>
-                    {tipiEntrata.map((tipo) => (
-                      <Box key={tipo.id} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Chip label={tipo.nome} size="small" variant="outlined" sx={{ minWidth: 100 }} />
-                        <Box sx={{ flex: 1 }}>
-                          {renderField(int.id, tipo.id)}
-                        </Box>
-                      </Box>
-                    ))}
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
-          </Stack>
         ) : (
-          /* ─── DESKTOP: Table layout ─── */
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell><strong>Intestatario</strong></TableCell>
-                  <TableCell><strong>Tipo Entrata</strong></TableCell>
-                  <TableCell sx={{ width: 200 }}><strong>Valore</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {intestatari.map((int) =>
-                  tipiEntrata.map((tipo, tipoIdx) => (
-                    <TableRow key={makeKey(int.id, tipo.id)}>
-                      {tipoIdx === 0 ? (
-                        <TableCell rowSpan={tipiEntrata.length}>
-                          <Typography variant="body2" fontWeight={500}>
-                            {int.nome} {int.cognome}
-                          </Typography>
-                        </TableCell>
-                      ) : null}
-                      <TableCell>
-                        <Chip label={tipo.nome} size="small" variant="outlined" />
-                      </TableCell>
-                      <TableCell>
-                        {renderField(int.id, tipo.id)}
-                      </TableCell>
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Usa <code>=prev+100</code> per formule. <code>prev</code> = entrata mese precedente.
+            </Typography>
+
+            {isMobile ? (
+              /* ─── MOBILE: Card layout ─── */
+              <Stack spacing={1.5}>
+                {intestatari.map((int) => (
+                  <Card key={int.id} variant="outlined">
+                    <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                        {int.nome} {int.cognome}
+                      </Typography>
+                      <Stack spacing={1}>
+                        {tipiEntrata.map((tipo) => (
+                          <Box key={tipo.id} sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
+                            <Chip label={tipo.nome} size="small" variant="outlined" sx={{ minWidth: 100, mt: 0.5 }} />
+                            <Box sx={{ flex: 1 }}>
+                              {renderField(int.id, tipo.id)}
+                            </Box>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              /* ─── DESKTOP: Table layout ─── */
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell><strong>Intestatario</strong></TableCell>
+                      <TableCell><strong>Tipo Entrata</strong></TableCell>
+                      <TableCell sx={{ width: 220 }}><strong>Valore</strong></TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {intestatari.map((int) =>
+                      tipiEntrata.map((tipo, tipoIdx) => (
+                        <TableRow key={makeKey(int.id, tipo.id)}>
+                          {tipoIdx === 0 ? (
+                            <TableCell rowSpan={tipiEntrata.length}>
+                              <Typography variant="body2" fontWeight={500}>
+                                {int.nome} {int.cognome}
+                              </Typography>
+                            </TableCell>
+                          ) : null}
+                          <TableCell>
+                            <Chip label={tipo.nome} size="small" variant="outlined" />
+                          </TableCell>
+                          <TableCell>
+                            {renderField(int.id, tipo.id)}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </>
         )}
       </DialogContent>
       <DialogActions>

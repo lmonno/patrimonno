@@ -25,8 +25,6 @@ import {
   Stack,
   useMediaQuery,
   useTheme,
-  ToggleButton,
-  ToggleButtonGroup,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -251,22 +249,26 @@ export default function EntrateTable() {
       {/* Filtro intestatario */}
       {intestatari.length > 0 && (
         <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             Filtra per intestatario
           </Typography>
-          <ToggleButtonGroup
-            value={filtroIntestatario}
-            exclusive
-            onChange={(_, v) => { if (v !== null) setFiltroIntestatario(v); }}
-            size="small"
-          >
-            <ToggleButton value="tutti">Tutti</ToggleButton>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+            <Chip
+              label="Tutti"
+              color={filtroIntestatario === "tutti" ? "primary" : "default"}
+              variant={filtroIntestatario === "tutti" ? "filled" : "outlined"}
+              onClick={() => setFiltroIntestatario("tutti")}
+            />
             {intestatari.map((int) => (
-              <ToggleButton key={int.id} value={int.id}>
-                {int.nome} {int.cognome}
-              </ToggleButton>
+              <Chip
+                key={int.id}
+                label={`${int.nome} ${int.cognome}`}
+                color={filtroIntestatario === int.id ? "primary" : "default"}
+                variant={filtroIntestatario === int.id ? "filled" : "outlined"}
+                onClick={() => setFiltroIntestatario(int.id)}
+              />
             ))}
-          </ToggleButtonGroup>
+          </Box>
         </Box>
       )}
 
