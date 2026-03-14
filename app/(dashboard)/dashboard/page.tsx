@@ -14,6 +14,7 @@ import {
 import SavingsIcon from "@mui/icons-material/Savings";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
+import MonthYearPicker from "@/components/ui/MonthYearPicker";
 
 interface Intestatario {
   id: string;
@@ -32,6 +33,13 @@ export default function DashboardPage() {
   const { data: session } = useSession();
   const user = session?.user;
 
+  // Default: mese precedente
+  const now = new Date();
+  const defaultMese = now.getMonth() === 0 ? 12 : now.getMonth(); // getMonth() 0-based = mese precedente in 1-based
+  const defaultAnno = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+  const [anno, setAnno] = useState(defaultAnno);
+  const [mese, setMese] = useState(defaultMese);
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [patrimonio, setPatrimonio] = useState<Patrimonio | null>(null);
@@ -45,12 +53,13 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
-  // Carica patrimonio quando cambiano gli intestatari selezionati
+  // Carica patrimonio quando cambiano intestatari selezionati o mese
   const fetchPatrimonio = useCallback(async () => {
     setLoading(true);
     try {
-      const params = selectedIds.length > 0 ? `?intestatariIds=${selectedIds.join(",")}` : "";
-      const res = await fetch(`/api/patrimonio${params}`);
+      const queryParams = new URLSearchParams({ anno: String(anno), mese: String(mese) });
+      if (selectedIds.length > 0) queryParams.set("intestatariIds", selectedIds.join(","));
+      const res = await fetch(`/api/patrimonio?${queryParams}`);
       if (res.ok) {
         setPatrimonio(await res.json());
       }
@@ -59,7 +68,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedIds]);
+  }, [selectedIds, anno, mese]);
 
   useEffect(() => {
     fetchPatrimonio();
@@ -80,9 +89,12 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Typography variant="h4" fontWeight={700} gutterBottom>
-        Benvenuto, {user?.nome}
-      </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2, mb: 1 }}>
+        <Typography variant="h4" fontWeight={700}>
+          Benvenuto, {user?.nome}
+        </Typography>
+        <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
+      </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         Panoramica del patrimonio familiare
       </Typography>
@@ -157,10 +169,7 @@ export default function DashboardPage() {
                     {formatEuro(patrimonio?.risparmioMedioMensile ?? 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Risparmio medio mensile
-                    {patrimonio && patrimonio.mesiConDati > 0 && (
-                      <> · su {patrimonio.mesiConDati} {patrimonio.mesiConDati === 1 ? "mese" : "mesi"} con dati</>
-                    )}
+                    Risparmio medio su 12 mesi
                   </Typography>
                 </Box>
               </CardContent>

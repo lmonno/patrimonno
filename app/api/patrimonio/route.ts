@@ -15,6 +15,17 @@ export async function GET(request: NextRequest) {
       ? intestatariIdsParam.split(",").filter(Boolean)
       : null;
 
+    // Mese di riferimento (default: mese precedente)
+    const now = new Date();
+    let defaultMese = now.getMonth(); // 0-based, quindi getMonth() = mese precedente in 1-based
+    let defaultAnno = now.getFullYear();
+    if (defaultMese === 0) {
+      defaultMese = 12;
+      defaultAnno -= 1;
+    }
+    const meseRif = parseInt(searchParams.get("mese") || String(defaultMese)) || defaultMese;
+    const annoRif = parseInt(searchParams.get("anno") || String(defaultAnno)) || defaultAnno;
+
     // Carica tutti i conti attivi con intestatari e saldi
     const conti = await prisma.conto.findMany({
       where: { deletedAt: null },
@@ -56,31 +67,22 @@ export async function GET(request: NextRequest) {
       })
       .filter(Boolean) as { conto: (typeof conti)[number]; quota: number }[];
 
-    // --- Saldo attuale: ultimo saldo disponibile per ogni conto ---
+    // --- Saldo al mese di riferimento: somma saldi del mese selezionato ---
     let saldoAttuale = 0;
     for (const { conto, quota } of contiConQuota) {
-      if (conto.saldi.length > 0) {
-        // Saldi già ordinati desc, il primo è l'ultimo
-        const ultimo = conto.saldi[0];
-        saldoAttuale += Number(ultimo.valore) * quota;
+      const saldo = conto.saldi.find(
+        (s) => s.anno === annoRif && s.mese === meseRif
+      );
+      if (saldo) {
+        saldoAttuale += Number(saldo.valore) * quota;
       }
     }
 
-    // --- Storico ultimi 12 mesi ---
-    const now = new Date();
-    let meseCorrente = now.getMonth(); // 0-based
-    let annoCorrente = now.getFullYear();
-    // Se siamo all'inizio del mese, consideriamo il mese precedente come corrente
-    if (meseCorrente === 0) {
-      meseCorrente = 12;
-      annoCorrente -= 1;
-    }
-
-    // Genera lista ultimi 12 mesi (dal più vecchio al più recente)
+    // --- Storico 12 mesi che terminano al mese di riferimento ---
     const periodi: { anno: number; mese: number }[] = [];
     for (let i = 11; i >= 0; i--) {
-      let m = meseCorrente - i;
-      let a = annoCorrente;
+      let m = meseRif - i;
+      let a = annoRif;
       while (m <= 0) {
         m += 12;
         a -= 1;
@@ -111,35 +113,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // --- Risparmio medio mensile (ultimi 12 mesi) ---
-    // (saldo ultimo mese - saldo 12 mesi fa) / 12
+    // --- Risparmio medio mensile: (mese selezionato - 12 mesi prima) / 12 ---
     let risparmioMedioMensile = 0;
     const mesiConDati = storico.length;
-    if (storico.length >= 2) {
-      const ultimo = storico[storico.length - 1];
-      // Cerco il saldo di esattamente 12 mesi prima dell'ultimo
-      let meseRif = ultimo.mese - 12;
-      let annoRif = ultimo.anno;
-      while (meseRif <= 0) {
-        meseRif += 12;
-        annoRif -= 1;
-      }
-      const dodiciMesiFa = storico.find(
-        (s) => s.anno === annoRif && s.mese === meseRif
-      );
-      if (dodiciMesiFa) {
-        risparmioMedioMensile =
-          Math.round(((ultimo.totale - dodiciMesiFa.totale) / 12) * 100) / 100;
-      } else {
-        // Se non c'è il saldo di 12 mesi fa, uso il primo disponibile
-        const primo = storico[0];
-        const nMesi =
-          (ultimo.anno - primo.anno) * 12 + (ultimo.mese - primo.mese);
-        if (nMesi > 0) {
-          risparmioMedioMensile =
-            Math.round(((ultimo.totale - primo.totale) / nMesi) * 100) / 100;
-        }
-      }
+    const meseSelezionato = storico.find(
+      (s) => s.anno === annoRif && s.mese === meseRif
+    );
+    // Cerco il saldo di esattamente 12 mesi prima
+    let mese12Fa = meseRif - 12;
+    let anno12Fa = annoRif;
+    while (mese12Fa <= 0) {
+      mese12Fa += 12;
+      anno12Fa -= 1;
+    }
+    const dodiciMesiFa = storico.find(
+      (s) => s.anno === anno12Fa && s.mese === mese12Fa
+    );
+    if (meseSelezionato) {
+      const totale12Fa = dodiciMesiFa?.totale ?? 0;
+      risparmioMedioMensile =
+        Math.round(((meseSelezionato.totale - totale12Fa) / 12) * 100) / 100;
     }
 
     return NextResponse.json({
