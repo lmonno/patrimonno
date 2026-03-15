@@ -82,8 +82,9 @@ model Intestatario {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  conti    ContoIntestatario[]
-  entrate  Entrata[]
+  conti               ContoIntestatario[]
+  entrate             Entrata[]
+  flussiStraordinari  FlussoStraordinario[]
 
   @@map("intestatari")
 }
@@ -191,4 +192,34 @@ model Entrata {
 
   @@unique([intestatarioId, tipoEntrataId, anno, mese])
   @@map("entrate")
+}
+
+// ─── FLUSSI STRAORDINARI ──────────────────────────────────────
+
+model CategoriaFlusso {
+  id        String    @id @default(cuid())
+  nome      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  flussi FlussoStraordinario[]
+
+  @@map("categorie_flusso")
+}
+
+model FlussoStraordinario {
+  id              String   @id @default(cuid())
+  data            DateTime @db.Date
+  importo         Decimal  @db.Decimal(15, 2)
+  descrizione     String   @db.Text
+  categoriaId     String
+  intestatarioId  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  categoria    CategoriaFlusso @relation(fields: [categoriaId], references: [id])
+  intestatario Intestatario?   @relation(fields: [intestatarioId], references: [id])
+
+  @@map("flussi_straordinari")
 }

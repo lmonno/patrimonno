@@ -48,6 +48,16 @@ async function main() {
     });
   }
 
+  // Categorie Flussi Straordinari
+  const categorieFlusso = ["Casa", "Auto", "Salute", "Viaggi", "Regali", "Altro"];
+  for (const nome of categorieFlusso) {
+    await prisma.categoriaFlusso.upsert({
+      where: { nome },
+      update: {},
+      create: { nome },
+    });
+  }
+
   console.log("Seed completato con successo!");
 }
 
