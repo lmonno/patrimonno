@@ -41,11 +41,14 @@ export async function GET(request: NextRequest) {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Entrate Storiche");
 
-    // Header: colonne fisse + colonne mese come date
-    const fixedHeaders = ["intestatarioIds", "tipoEntrataId", "Intestatari", "Tipo Entrata"];
+    // Header: formato verticale (unpivot)
     const headerRow = sheet.addRow([
-      ...fixedHeaders,
-      ...months.map((m) => new Date(m.anno, m.mese - 1, 1)),
+      "intestatarioIds",
+      "tipoEntrataId",
+      "Intestatari",
+      "Tipo Entrata",
+      "Mese",
+      "Valore",
     ]);
 
     headerRow.font = { bold: true };
@@ -58,30 +61,31 @@ export async function GET(request: NextRequest) {
     sheet.getColumn(2).width = 30;
     sheet.getColumn(3).width = 30;
     sheet.getColumn(4).width = 20;
-
-    // Colonne mese: header in formato data MM/YYYY, celle dati in formato numerico
-    for (let i = 5; i <= 4 + months.length; i++) {
-      sheet.getColumn(i).width = 14;
-      sheet.getColumn(i).numFmt = '#,##0.00';
-      headerRow.getCell(i).numFmt = 'MM/YYYY';
-    }
+    sheet.getColumn(5).width = 14;
+    sheet.getColumn(5).numFmt = "MM/YYYY";
+    sheet.getColumn(6).width = 14;
+    sheet.getColumn(6).numFmt = "#,##0.00";
 
     // Tutti gli intestatari come stringa
     const allIds = intestatari.map((i) => i.id).join(",");
     const allNames = intestatari.map((i) => `${i.nome} ${i.cognome}`).join(", ");
 
-    // Una riga per ogni tipo entrata (tutti gli intestatari di default)
+    // Una riga per ogni combinazione tipo entrata × mese
     for (const tipo of tipiEntrata) {
-      sheet.addRow([
-        allIds,
-        tipo.id,
-        allNames,
-        tipo.nome,
-        ...months.map(() => null),
-      ]);
+      for (const { anno, mese } of months) {
+        const row = sheet.addRow([
+          allIds,
+          tipo.id,
+          allNames,
+          tipo.nome,
+          new Date(anno, mese - 1, 1),
+          null,
+        ]);
+        row.getCell(5).numFmt = "MM/YYYY";
+      }
     }
 
-    sheet.views = [{ state: "frozen", xSplit: 4, ySplit: 1 }];
+    sheet.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
 
     const buffer = await workbook.xlsx.writeBuffer();
     return new NextResponse(buffer as ArrayBuffer, {

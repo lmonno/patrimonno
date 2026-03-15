@@ -26,40 +26,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Foglio "Entrate Storiche" non trovato. Usa il template originale.' }, { status: 400 });
     }
 
-    // Colonne fisse: 1=intestatarioIds, 2=tipoEntrataId, 3=Intestatari, 4=Tipo Entrata
-    const FIXED_COLS = 4;
-    const monthColumns: { colIndex: number; anno: number; mese: number }[] = [];
-
-    const headerRow = sheet.getRow(1);
-    headerRow.eachCell((cell, colNumber) => {
-      if (colNumber <= FIXED_COLS) return;
-
-      // Supporta sia Date Excel che pattern MM/YYYY testo
-      const raw = cell.value;
-      if (raw instanceof Date) {
-        monthColumns.push({
-          colIndex: colNumber,
-          mese: raw.getMonth() + 1,
-          anno: raw.getFullYear(),
-        });
-        return;
-      }
-
-      const val = cell.text?.trim();
-      if (!val) return;
-      const match = val.match(/^(\d{2})\/(\d{4})$/);
-      if (match) {
-        monthColumns.push({
-          colIndex: colNumber,
-          mese: parseInt(match[1]),
-          anno: parseInt(match[2]),
-        });
-      }
-    });
-
-    if (monthColumns.length === 0) {
-      return NextResponse.json({ error: "Nessuna colonna mese trovata nel file." }, { status: 400 });
-    }
+    // Formato verticale (unpivot):
+    // Col 1: intestatarioIds, Col 2: tipoEntrataId, Col 3: Intestatari, Col 4: Tipo Entrata, Col 5: Mese (data), Col 6: Valore
 
     const entrateToUpsert: { intestatarioId: string; tipoEntrataId: string; anno: number; mese: number; valore: number }[] = [];
     const righeConErrore: string[] = [];
@@ -67,7 +35,6 @@ export async function POST(request: NextRequest) {
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return;
 
-      // Colonna 1: intestatarioIds (comma-separated)
       const intestatarioIdsRaw = row.getCell(1).text?.trim();
       const tipoEntrataId = row.getCell(2).text?.trim();
       if (!intestatarioIdsRaw || !tipoEntrataId) return;
@@ -75,41 +42,65 @@ export async function POST(request: NextRequest) {
       const intestatarioIds = intestatarioIdsRaw.split(",").map((id) => id.trim()).filter(Boolean);
       if (intestatarioIds.length === 0) return;
 
-      for (const { colIndex, anno, mese } of monthColumns) {
-        const cell = row.getCell(colIndex);
-        let rawVal = cell.value;
-        if (rawVal === null || rawVal === undefined || rawVal === "") continue;
+      // Colonna 5: Mese (data)
+      const meseCell = row.getCell(5);
+      const meseRaw = meseCell.value;
+      let anno: number | null = null;
+      let mese: number | null = null;
 
-        // Gestione formule ExcelJS
-        if (typeof rawVal === "object" && rawVal !== null) {
-          const obj = rawVal as unknown as Record<string, unknown>;
-          if ("formula" in obj || "sharedFormula" in obj) {
-            const formulaResult = obj.result;
-            if (formulaResult === null || formulaResult === undefined || formulaResult === "") continue;
-            if (typeof formulaResult === "object" && formulaResult !== null && "error" in (formulaResult as Record<string, unknown>)) {
-              righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: formula con errore "${(formulaResult as Record<string, unknown>).error}"`);
-              continue;
-            }
-            rawVal = formulaResult as unknown as typeof rawVal;
-          } else if ("richText" in obj) {
-            rawVal = (obj.richText as Array<{ text: string }>).map((r) => r.text).join("") as unknown as typeof rawVal;
+      if (meseRaw instanceof Date) {
+        anno = meseRaw.getFullYear();
+        mese = meseRaw.getMonth() + 1;
+      } else {
+        const meseText = meseCell.text?.trim();
+        if (meseText) {
+          const match = meseText.match(/^(\d{2})\/(\d{4})$/);
+          if (match) {
+            mese = parseInt(match[1]);
+            anno = parseInt(match[2]);
           }
         }
-        if (rawVal === null || rawVal === undefined || rawVal === "") continue;
+      }
 
-        const valoreStr = typeof rawVal === "number" ? rawVal : String(rawVal).replace(",", ".");
-        const valoreTotale = parseFloat(String(valoreStr));
+      if (anno === null || mese === null) {
+        righeConErrore.push(`Riga ${rowNumber}: mese non valido "${meseCell.text}"`);
+        return;
+      }
 
-        if (isNaN(valoreTotale)) {
-          righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: valore non numerico "${rawVal}"`);
-          continue;
+      // Colonna 6: Valore
+      const valoreCell = row.getCell(6);
+      let rawVal = valoreCell.value;
+      if (rawVal === null || rawVal === undefined || rawVal === "") return;
+
+      // Gestione formule ExcelJS
+      if (typeof rawVal === "object" && rawVal !== null) {
+        const obj = rawVal as unknown as Record<string, unknown>;
+        if ("formula" in obj || "sharedFormula" in obj) {
+          const formulaResult = obj.result;
+          if (formulaResult === null || formulaResult === undefined || formulaResult === "") return;
+          if (typeof formulaResult === "object" && formulaResult !== null && "error" in (formulaResult as Record<string, unknown>)) {
+            righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: formula con errore "${(formulaResult as Record<string, unknown>).error}"`);
+            return;
+          }
+          rawVal = formulaResult as unknown as typeof rawVal;
+        } else if ("richText" in obj) {
+          rawVal = (obj.richText as Array<{ text: string }>).map((r) => r.text).join("") as unknown as typeof rawVal;
         }
+      }
+      if (rawVal === null || rawVal === undefined || rawVal === "") return;
 
-        // Dividi il valore equamente tra gli intestatari
-        const valorePerIntestatario = Math.round((valoreTotale / intestatarioIds.length) * 100) / 100;
-        for (const intestatarioId of intestatarioIds) {
-          entrateToUpsert.push({ intestatarioId, tipoEntrataId, anno, mese, valore: valorePerIntestatario });
-        }
+      const valoreStr = typeof rawVal === "number" ? rawVal : String(rawVal).replace(",", ".");
+      const valoreTotale = parseFloat(String(valoreStr));
+
+      if (isNaN(valoreTotale)) {
+        righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: valore non numerico "${rawVal}"`);
+        return;
+      }
+
+      // Dividi il valore equamente tra gli intestatari
+      const valorePerIntestatario = Math.round((valoreTotale / intestatarioIds.length) * 100) / 100;
+      for (const intestatarioId of intestatarioIds) {
+        entrateToUpsert.push({ intestatarioId, tipoEntrataId, anno, mese, valore: valorePerIntestatario });
       }
     });
 
