@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // --- Risparmio medio mensile: (mese selezionato - 12 mesi prima) / 12 ---
+    // --- Risparmio medio mensile: (saldo attuale - saldo 12 mesi fa - flussi straordinari) / 12 ---
     let risparmioMedioMensile = 0;
     const mesiConDati = storico.length;
     const meseSelezionato = storico.find(
@@ -129,15 +129,69 @@ export async function GET(request: NextRequest) {
     const dodiciMesiFa = storico.find(
       (s) => s.anno === anno12Fa && s.mese === mese12Fa
     );
+
+    // Flussi straordinari nel periodo (dal mese dopo il mese 12fa fino al mese di riferimento incluso)
+    // Range: dal giorno 1 del mese successivo a 12 mesi fa, fino all'ultimo giorno del mese di riferimento
+    let meseInizio = mese12Fa + 1;
+    let annoInizio = anno12Fa;
+    if (meseInizio > 12) {
+      meseInizio = 1;
+      annoInizio += 1;
+    }
+    const dataInizio = new Date(annoInizio, meseInizio - 1, 1); // primo giorno del mese dopo 12fa
+    const dataFine = new Date(annoRif, meseRif, 0); // ultimo giorno del mese di riferimento
+
+    // Filtro flussi per intestatari selezionati (null = comune, incluso sempre)
+    const whereFlussi: Record<string, unknown> = {
+      data: { gte: dataInizio, lte: dataFine },
+    };
+    if (selectedIds) {
+      whereFlussi.OR = [
+        { intestatarioId: { in: selectedIds } },
+        { intestatarioId: null },
+      ];
+    }
+
+    const flussi = await prisma.flussoStraordinario.findMany({
+      where: whereFlussi,
+      select: { importo: true, intestatarioId: true },
+    });
+
+    // Somma flussi (quelli "comuni" contano al 100% se filtro Tutti,
+    // oppure quota proporzionale se filtro per intestatari)
+    let totaleFlussi = 0;
+    if (selectedIds) {
+      const numSelected = selectedIds.length;
+      // Carica tutti gli intestatari attivi per calcolare la quota dei flussi comuni
+      const tuttiIntestatari = await prisma.intestatario.findMany({
+        where: { deletedAt: null },
+        select: { id: true },
+      });
+      const numTotaleIntestatari = tuttiIntestatari.length;
+      for (const f of flussi) {
+        if (f.intestatarioId === null) {
+          // Flusso comune: quota proporzionale
+          totaleFlussi += Number(f.importo) * (numSelected / numTotaleIntestatari);
+        } else {
+          totaleFlussi += Number(f.importo);
+        }
+      }
+    } else {
+      for (const f of flussi) {
+        totaleFlussi += Number(f.importo);
+      }
+    }
+
     if (meseSelezionato) {
       const totale12Fa = dodiciMesiFa?.totale ?? 0;
       risparmioMedioMensile =
-        Math.round(((meseSelezionato.totale - totale12Fa) / 12) * 100) / 100;
+        Math.round(((meseSelezionato.totale - totale12Fa - totaleFlussi) / 12) * 100) / 100;
     }
 
     return NextResponse.json({
       saldoAttuale: Math.round(saldoAttuale * 100) / 100,
       risparmioMedioMensile,
+      totaleFlussiStraordinari: Math.round(totaleFlussi * 100) / 100,
       mesiConDati,
       storico,
     });
