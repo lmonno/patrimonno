@@ -14,8 +14,10 @@ import {
   useTheme,
 } from "@mui/material";
 import SavingsIcon from "@mui/icons-material/Savings";
+import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import MonthYearPicker from "@/components/ui/MonthYearPicker";
 import {
   ResponsiveContainer,
@@ -37,7 +39,9 @@ interface Intestatario {
 
 interface Patrimonio {
   saldoAttuale: number;
+  patrimonioComplessivo: number;
   risparmioMedioMensile: number;
+  risparmioUltimoMese: number;
   mesiConDati: number;
   storico: { anno: number; mese: number; totale: number }[];
 }
@@ -129,6 +133,7 @@ export default function DashboardPage() {
     Math.round(value).toLocaleString("de-DE") + " €";
 
   const risparmioPositivo = (patrimonio?.risparmioMedioMensile ?? 0) >= 0;
+  const risparmioUltimoMesePositivo = (patrimonio?.risparmioUltimoMese ?? 0) >= 0;
 
   // Dati grafico
   const chartData = entrateStorico.map((e) => ({
@@ -186,8 +191,8 @@ export default function DashboardPage() {
         </Box>
       ) : (
         <Grid container spacing={3}>
-          {/* Saldo Attuale */}
-          <Grid size={{ xs: 12, sm: 6 }}>
+          {/* Saldo Attuale (liquido) */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card sx={{ bgcolor: "#e3f2fd", height: "100%" }}>
               <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, py: 3 }}>
                 <SavingsIcon sx={{ fontSize: 48, color: "primary.main" }} />
@@ -196,7 +201,46 @@ export default function DashboardPage() {
                     {formatEuro(patrimonio?.saldoAttuale ?? 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Saldo attuale
+                    Saldo liquido
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Patrimonio Complessivo */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card sx={{ bgcolor: "#ede7f6", height: "100%" }}>
+              <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, py: 3 }}>
+                <AccountBalanceWalletIcon sx={{ fontSize: 48, color: "#5e35b1" }} />
+                <Box>
+                  <Typography variant="h4" fontWeight={700}>
+                    {formatEuro(patrimonio?.patrimonioComplessivo ?? 0)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Patrimonio complessivo
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Risparmio Ultimo Mese */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card sx={{ bgcolor: risparmioUltimoMesePositivo ? "#e8f5e9" : "#fce4ec", height: "100%" }}>
+              <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, py: 3 }}>
+                <CalendarMonthIcon sx={{ fontSize: 48, color: risparmioUltimoMesePositivo ? "success.main" : "error.main" }} />
+                <Box>
+                  <Typography
+                    variant="h4"
+                    fontWeight={700}
+                    color={risparmioUltimoMesePositivo ? "success.main" : "error.main"}
+                  >
+                    {(patrimonio?.risparmioUltimoMese ?? 0) >= 0 ? "+" : ""}
+                    {formatEuro(patrimonio?.risparmioUltimoMese ?? 0)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Risparmio ultimo mese
                   </Typography>
                 </Box>
               </CardContent>
@@ -204,7 +248,7 @@ export default function DashboardPage() {
           </Grid>
 
           {/* Risparmio Medio Mensile */}
-          <Grid size={{ xs: 12, sm: 6 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card sx={{ bgcolor: risparmioPositivo ? "#e8f5e9" : "#fce4ec", height: "100%" }}>
               <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, py: 3 }}>
                 {risparmioPositivo ? (
@@ -222,7 +266,7 @@ export default function DashboardPage() {
                     {formatEuro(patrimonio?.risparmioMedioMensile ?? 0)}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Risparmio medio su 12 mesi
+                    Risparmio medio 12 mesi
                   </Typography>
                 </Box>
               </CardContent>

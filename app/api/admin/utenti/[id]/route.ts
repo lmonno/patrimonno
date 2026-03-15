@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { updateUtenteSchema } from "@/lib/validations/utente";
+import bcrypt from "bcryptjs";
 
 async function checkAdmin() {
   const session = await auth();
@@ -32,9 +33,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Utente non trovato" }, { status: 404 });
     }
 
+    const data: Record<string, unknown> = {};
+    if (parsed.data.ruolo) data.ruolo = parsed.data.ruolo;
+    if (parsed.data.password) data.hashedPassword = await bcrypt.hash(parsed.data.password, 12);
+
     const aggiornato = await prisma.user.update({
       where: { id },
-      data: { ruolo: parsed.data.ruolo },
+      data,
       select: { id: true, nome: true, email: true, ruolo: true, createdAt: true },
     });
 

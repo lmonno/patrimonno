@@ -28,6 +28,7 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
+import LockResetIcon from "@mui/icons-material/LockReset";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -234,11 +235,95 @@ function CambiaRuoloForm({
   );
 }
 
+function CambiaPasswordForm({
+  utente,
+  onClose,
+  onSave,
+}: {
+  utente: Utente | null;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (utente) {
+      setPassword("");
+      setError("");
+    }
+  }, [utente]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!utente) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/utenti/${utente.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Errore durante il salvataggio");
+        return;
+      }
+      onSave();
+      onClose();
+    } catch {
+      setError("Errore di connessione");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!utente} onClose={onClose} maxWidth="xs" fullWidth>
+      <form onSubmit={handleSubmit}>
+        <DialogTitle>Cambia Password</DialogTitle>
+        <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2, mt: 1 }}>
+              {error}
+            </Alert>
+          )}
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Utente: <strong>{utente?.nome}</strong>
+          </Typography>
+          <TextField
+            label="Nuova password"
+            type="password"
+            fullWidth
+            required
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); setError(""); }}
+            margin="normal"
+            autoFocus
+            helperText="Minimo 8 caratteri"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose} disabled={loading}>
+            Annulla
+          </Button>
+          <Button type="submit" variant="contained" disabled={loading}>
+            Salva
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+}
+
 export default function UtentiTable() {
   const [utenti, setUtenti] = useState<Utente[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editUtente, setEditUtente] = useState<Utente | null>(null);
+  const [passwordUtente, setPasswordUtente] = useState<Utente | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({
@@ -338,6 +423,11 @@ export default function UtentiTable() {
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
+                    <Tooltip title="Cambia password">
+                      <IconButton size="small" onClick={() => setPasswordUtente(u)}>
+                        <LockResetIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title="Elimina">
                       <IconButton size="small" color="error" onClick={() => setDeleteId(u.id)}>
                         <DeleteIcon fontSize="small" />
@@ -366,6 +456,14 @@ export default function UtentiTable() {
         onSave={() => {
           fetchData();
           setSnackbar({ open: true, message: "Ruolo aggiornato", severity: "success" });
+        }}
+      />
+
+      <CambiaPasswordForm
+        utente={passwordUtente}
+        onClose={() => setPasswordUtente(null)}
+        onSave={() => {
+          setSnackbar({ open: true, message: "Password aggiornata", severity: "success" });
         }}
       />
 

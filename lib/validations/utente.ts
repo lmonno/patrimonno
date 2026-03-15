@@ -8,5 +8,6 @@ export const createUtenteSchema = z.object({
 });
 
 export const updateUtenteSchema = z.object({
-  ruolo: z.enum(["ADMIN", "UTENTE"]),
+  ruolo: z.enum(["ADMIN", "UTENTE"]).optional(),
+  password: z.string().min(8, "La password deve essere di almeno 8 caratteri").optional(),
 });
