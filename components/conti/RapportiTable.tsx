@@ -21,12 +21,16 @@ import {
   Paper,
   IconButton,
   Tooltip,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import ArchiveIcon from "@mui/icons-material/Archive";
+import UnarchiveIcon from "@mui/icons-material/Unarchive";
 import RapportoForm from "./RapportoForm";
 import ContoForm from "./ContoForm";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -42,6 +46,8 @@ interface Conto {
   id: string;
   nome: string;
   tipoContoId: string;
+  liquido: boolean;
+  archiviato: boolean;
   note: string | null;
   rapportoId: string;
   tipoConto: { id: string; nome: string };
@@ -54,12 +60,14 @@ interface Rapporto {
   istituto: string;
   iban: string | null;
   note: string | null;
+  archiviato: boolean;
   conti: Conto[];
 }
 
 export default function RapportiTable() {
   const [rapporti, setRapporti] = useState<Rapporto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mostraArchiviati, setMostraArchiviati] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
 
   // Rapporto form
@@ -130,6 +138,61 @@ export default function RapportiTable() {
     }
   };
 
+  const toggleArchiviatoRapporto = async (rapporto: Rapporto) => {
+    try {
+      const res = await fetch(`/api/rapporti/${rapporto.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archiviato: !rapporto.archiviato }),
+      });
+      if (res.ok) {
+        setSnackbar({
+          open: true,
+          message: rapporto.archiviato ? "Rapporto ripristinato" : "Rapporto archiviato",
+          severity: "success",
+        });
+        fetchData();
+      } else {
+        setSnackbar({ open: true, message: "Errore durante l'operazione", severity: "error" });
+      }
+    } catch {
+      setSnackbar({ open: true, message: "Errore di connessione", severity: "error" });
+    }
+  };
+
+  const toggleArchiviatoConto = async (conto: Conto) => {
+    try {
+      const res = await fetch(`/api/conti/${conto.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archiviato: !conto.archiviato }),
+      });
+      if (res.ok) {
+        setSnackbar({
+          open: true,
+          message: conto.archiviato ? "Conto ripristinato" : "Conto archiviato",
+          severity: "success",
+        });
+        fetchData();
+      } else {
+        setSnackbar({ open: true, message: "Errore durante l'operazione", severity: "error" });
+      }
+    } catch {
+      setSnackbar({ open: true, message: "Errore di connessione", severity: "error" });
+    }
+  };
+
+  // Filtra rapporti e conti in base al toggle
+  const rapportiFiltrati = rapporti
+    .filter((r) => mostraArchiviati || !r.archiviato)
+    .map((r) => ({
+      ...r,
+      conti: r.conti.filter((c) => mostraArchiviati || !c.archiviato),
+    }));
+
+  const numArchiviati = rapporti.filter((r) => r.archiviato).length
+    + rapporti.reduce((sum, r) => sum + r.conti.filter((c) => c.archiviato).length, 0);
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -140,33 +203,61 @@ export default function RapportiTable() {
 
   return (
     <>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, flexWrap: "wrap", gap: 1 }}>
         <Typography variant="h5" fontWeight={600}>
           Rapporti e Conti
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setEditRapporto(null);
-            setRapportoFormOpen(true);
-          }}
-        >
-          Nuovo Rapporto
-        </Button>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          {numArchiviati > 0 && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={mostraArchiviati}
+                  onChange={(e) => setMostraArchiviati(e.target.checked)}
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  Archiviati ({numArchiviati})
+                </Typography>
+              }
+              sx={{ mr: 1 }}
+            />
+          )}
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setEditRapporto(null);
+              setRapportoFormOpen(true);
+            }}
+          >
+            Nuovo Rapporto
+          </Button>
+        </Box>
       </Box>
 
-      {rapporti.length === 0 ? (
+      {rapportiFiltrati.length === 0 ? (
         <EmptyState message="Nessun rapporto trovato. Crea il primo rapporto per iniziare." />
       ) : (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          {rapporti.map((rapporto) => (
-            <Accordion key={rapporto.id} defaultExpanded={rapporti.length === 1}>
+          {rapportiFiltrati.map((rapporto) => (
+            <Accordion
+              key={rapporto.id}
+              defaultExpanded={rapportiFiltrati.length === 1}
+              sx={rapporto.archiviato ? { opacity: 0.6 } : undefined}
+            >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flex: 1, mr: 1 }}>
-                  <AccountBalanceIcon color="primary" fontSize="small" />
+                  <AccountBalanceIcon color={rapporto.archiviato ? "disabled" : "primary"} fontSize="small" />
                   <Box sx={{ flex: 1 }}>
-                    <Typography fontWeight={600}>{rapporto.nome}</Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography fontWeight={600}>{rapporto.nome}</Typography>
+                      {rapporto.archiviato && (
+                        <Chip label="Archiviato" size="small" color="default" variant="outlined" />
+                      )}
+                    </Box>
                     <Typography variant="caption" color="text.secondary">
                       {rapporto.istituto}
                       {rapporto.iban && <> · <Box component="span" sx={{ fontFamily: "monospace" }}>{rapporto.iban}</Box></>}
@@ -174,17 +265,30 @@ export default function RapportiTable() {
                     </Typography>
                   </Box>
                   <Box sx={{ display: "flex", gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Aggiungi conto">
+                    {!rapporto.archiviato && (
+                      <Tooltip title="Aggiungi conto">
+                        <IconButton
+                          component="div"
+                          role="button"
+                          tabIndex={0}
+                          size="small"
+                          color="primary"
+                          onClick={() => {
+                            setEditConto(null);
+                            setContoRapportoId(rapporto.id);
+                            setContoFormOpen(true);
+                          }}
+                        >
+                          <AddIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Tooltip title={rapporto.archiviato ? "Ripristina rapporto" : "Archivia rapporto"}>
                       <IconButton
                         size="small"
-                        color="primary"
-                        onClick={() => {
-                          setEditConto(null);
-                          setContoRapportoId(rapporto.id);
-                          setContoFormOpen(true);
-                        }}
+                        onClick={() => toggleArchiviatoRapporto(rapporto)}
                       >
-                        <AddIcon fontSize="small" />
+                        {rapporto.archiviato ? <UnarchiveIcon fontSize="small" /> : <ArchiveIcon fontSize="small" />}
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Modifica rapporto">
@@ -233,8 +337,18 @@ export default function RapportiTable() {
                       </TableHead>
                       <TableBody>
                         {rapporto.conti.map((conto) => (
-                          <TableRow key={conto.id} hover>
-                            <TableCell>{conto.nome}</TableCell>
+                          <TableRow key={conto.id} hover sx={conto.archiviato ? { opacity: 0.6 } : undefined}>
+                            <TableCell>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                {conto.nome}
+                                {!conto.liquido && (
+                                  <Chip label="Non liquido" size="small" color="warning" variant="outlined" />
+                                )}
+                                {conto.archiviato && (
+                                  <Chip label="Archiviato" size="small" color="default" variant="outlined" />
+                                )}
+                              </Box>
+                            </TableCell>
                             <TableCell>
                               <Chip label={conto.tipoConto.nome} size="small" variant="outlined" />
                             </TableCell>
@@ -252,6 +366,14 @@ export default function RapportiTable() {
                               </Box>
                             </TableCell>
                             <TableCell align="right">
+                              <Tooltip title={conto.archiviato ? "Ripristina" : "Archivia"}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => toggleArchiviatoConto(conto)}
+                                >
+                                  {conto.archiviato ? <UnarchiveIcon fontSize="small" /> : <ArchiveIcon fontSize="small" />}
+                                </IconButton>
+                              </Tooltip>
                               <Tooltip title="Modifica">
                                 <IconButton
                                   size="small"

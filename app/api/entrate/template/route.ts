@@ -29,26 +29,28 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    const months: { anno: number; mese: number; label: string }[] = [];
+    const months: { anno: number; mese: number }[] = [];
     for (let anno = startAnno; anno <= endAnno; anno++) {
       const firstMese = anno === startAnno ? startMese : 1;
       const lastMese = anno === endAnno ? endMese : 12;
       for (let mese = firstMese; mese <= lastMese; mese++) {
-        months.push({
-          anno,
-          mese,
-          label: `${String(mese).padStart(2, "0")}/${anno}`,
-        });
+        months.push({ anno, mese });
       }
     }
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Entrate Storiche");
 
-    const fixedHeaders = ["intestatarioId", "tipoEntrataId", "Intestatario", "Tipo Entrata"];
-    sheet.addRow([...fixedHeaders, ...months.map((m) => m.label)]);
+    // Header: formato verticale (unpivot)
+    const headerRow = sheet.addRow([
+      "intestatarioIds",
+      "tipoEntrataId",
+      "Intestatari",
+      "Tipo Entrata",
+      "Mese",
+      "Valore",
+    ]);
 
-    const headerRow = sheet.getRow(1);
     headerRow.font = { bold: true };
     headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD5E8D4" } };
 
@@ -57,27 +59,33 @@ export async function GET(request: NextRequest) {
     sheet.getColumn(1).width = 30;
     sheet.getColumn(2).hidden = true;
     sheet.getColumn(2).width = 30;
-    sheet.getColumn(3).width = 25;
+    sheet.getColumn(3).width = 30;
     sheet.getColumn(4).width = 20;
-    for (let i = 5; i <= 4 + months.length; i++) {
-      sheet.getColumn(i).width = 12;
-      sheet.getColumn(i).numFmt = '#,##0.00';
-    }
+    sheet.getColumn(5).width = 14;
+    sheet.getColumn(5).numFmt = "MM/YYYY";
+    sheet.getColumn(6).width = 14;
+    sheet.getColumn(6).numFmt = "#,##0.00";
 
-    // Una riga per ogni combinazione intestatario × tipo entrata
-    for (const intestatario of intestatari) {
-      for (const tipo of tipiEntrata) {
-        sheet.addRow([
-          intestatario.id,
+    // Tutti gli intestatari come stringa
+    const allIds = intestatari.map((i) => i.id).join(",");
+    const allNames = intestatari.map((i) => `${i.nome} ${i.cognome}`).join(", ");
+
+    // Una riga per ogni combinazione tipo entrata × mese
+    for (const tipo of tipiEntrata) {
+      for (const { anno, mese } of months) {
+        const row = sheet.addRow([
+          allIds,
           tipo.id,
-          `${intestatario.nome} ${intestatario.cognome}`,
+          allNames,
           tipo.nome,
-          ...months.map(() => null),
+          new Date(anno, mese - 1, 1),
+          null,
         ]);
+        row.getCell(5).numFmt = "MM/YYYY";
       }
     }
 
-    sheet.views = [{ state: "frozen", xSplit: 4, ySplit: 1 }];
+    sheet.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
 
     const buffer = await workbook.xlsx.writeBuffer();
     return new NextResponse(buffer as ArrayBuffer, {

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const annoRif = parseInt(searchParams.get("anno") || String(defaultAnno)) || defaultAnno;
 
     // Carica tutti i conti attivi con intestatari e saldi
-    const conti = await prisma.conto.findMany({
+    const tuttiConti = await prisma.conto.findMany({
       where: { deletedAt: null },
       include: {
         intestatari: {
@@ -40,6 +40,9 @@ export async function GET(request: NextRequest) {
         },
       },
     });
+
+    // Separa conti liquidi da tutti
+    const conti = tuttiConti.filter((c) => c.liquido);
 
     // Per ogni conto calcola la quota in base al filtro intestatari
     const contiConQuota = conti
@@ -66,6 +69,32 @@ export async function GET(request: NextRequest) {
         return { conto, quota };
       })
       .filter(Boolean) as { conto: (typeof conti)[number]; quota: number }[];
+
+    // --- Patrimonio complessivo (tutti i conti, anche non liquidi) ---
+    const tuttiContiConQuota = tuttiConti
+      .map((conto) => {
+        const intestatariIds = conto.intestatari.map((ci) => ci.intestatario.id);
+        const totaleIntestatari = intestatariIds.length;
+        if (totaleIntestatari === 0) return null;
+        let quota: number;
+        if (selectedIds) {
+          const match = intestatariIds.filter((id) => selectedIds.includes(id)).length;
+          if (match === 0) return null;
+          quota = match / totaleIntestatari;
+        } else {
+          quota = 1;
+        }
+        return { conto, quota };
+      })
+      .filter(Boolean) as { conto: (typeof tuttiConti)[number]; quota: number }[];
+
+    let patrimonioComplessivo = 0;
+    for (const { conto, quota } of tuttiContiConQuota) {
+      const saldo = conto.saldi.find((s) => s.anno === annoRif && s.mese === meseRif);
+      if (saldo) {
+        patrimonioComplessivo += Number(saldo.valore) * quota;
+      }
+    }
 
     // --- Saldo al mese di riferimento: somma saldi del mese selezionato ---
     let saldoAttuale = 0;
@@ -188,9 +217,28 @@ export async function GET(request: NextRequest) {
         Math.round(((meseSelezionato.totale - totale12Fa - totaleFlussi) / 12) * 100) / 100;
     }
 
+    // --- Risparmio ultimo mese (liquido): saldo mese rif - saldo mese precedente ---
+    let mesePrev = meseRif - 1;
+    let annoPrev = annoRif;
+    if (mesePrev <= 0) {
+      mesePrev = 12;
+      annoPrev -= 1;
+    }
+    let risparmioUltimoMese = 0;
+    let saldoMesePrecedente = 0;
+    for (const { conto, quota } of contiConQuota) {
+      const saldo = conto.saldi.find((s) => s.anno === annoPrev && s.mese === mesePrev);
+      if (saldo) {
+        saldoMesePrecedente += Number(saldo.valore) * quota;
+      }
+    }
+    risparmioUltimoMese = Math.round((saldoAttuale - saldoMesePrecedente) * 100) / 100;
+
     return NextResponse.json({
       saldoAttuale: Math.round(saldoAttuale * 100) / 100,
+      patrimonioComplessivo: Math.round(patrimonioComplessivo * 100) / 100,
       risparmioMedioMensile,
+      risparmioUltimoMese,
       totaleFlussiStraordinari: Math.round(totaleFlussi * 100) / 100,
       mesiConDati,
       storico,

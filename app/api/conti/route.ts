@@ -1,16 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const archiviatoParam = searchParams.get("archiviato");
+
+    const where: Record<string, unknown> = { deletedAt: null };
+    if (archiviatoParam === "false") {
+      where.archiviato = false;
+      where.rapporto = { archiviato: false };
+    }
+
     const conti = await prisma.conto.findMany({
-      where: { deletedAt: null },
+      where,
       include: {
         rapporto: { select: { id: true, nome: true, istituto: true, iban: true } },
         tipoConto: { select: { id: true, nome: true } },
