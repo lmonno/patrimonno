@@ -102,14 +102,15 @@ model TipoConto {
 }
 
 model Rapporto {
-  id        String    @id @default(cuid())
-  nome      String
-  istituto  String
-  iban      String?
-  note      String?   @db.Text
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id         String    @id @default(cuid())
+  nome       String
+  istituto   String
+  iban       String?
+  note       String?   @db.Text
+  archiviato Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
   conti Conto[]
 
@@ -121,6 +122,8 @@ model Conto {
   rapportoId  String
   nome        String
   tipoContoId String
+  liquido     Boolean   @default(true)
+  archiviato  Boolean   @default(false)
   note        String?   @db.Text
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

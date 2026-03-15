@@ -77,7 +77,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
     setError("");
     try {
       const [contiRes, prevRes, currentRes] = await Promise.all([
-        fetch("/api/conti"),
+        fetch("/api/conti?archiviato=false"),
         fetch(`/api/saldi/previous?anno=${a}&mese=${m}`),
         fetch(`/api/saldi?anno=${a}&mese=${m}`),
       ]);

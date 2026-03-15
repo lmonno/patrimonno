@@ -12,4 +12,5 @@ export const updateRapportoSchema = z.object({
   istituto: z.string().min(1).optional(),
   iban: z.string().optional().nullable(),
   note: z.string().optional().nullable(),
+  archiviato: z.boolean().optional(),
 });

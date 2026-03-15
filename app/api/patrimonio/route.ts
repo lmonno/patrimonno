@@ -26,9 +26,9 @@ export async function GET(request: NextRequest) {
     const meseRif = parseInt(searchParams.get("mese") || String(defaultMese)) || defaultMese;
     const annoRif = parseInt(searchParams.get("anno") || String(defaultAnno)) || defaultAnno;
 
-    // Carica tutti i conti attivi con intestatari e saldi
+    // Carica solo i conti attivi e liquidi con intestatari e saldi
     const conti = await prisma.conto.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, liquido: true },
       include: {
         intestatari: {
           include: {

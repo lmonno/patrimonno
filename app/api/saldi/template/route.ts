@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const endMese = parseInt(searchParams.get("aMese") ?? (now.getMonth() + 1).toString());
 
     const conti = await prisma.conto.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, archiviato: false, rapporto: { archiviato: false } },
       include: {
         rapporto: { select: { nome: true, istituto: true } },
         tipoConto: { select: { nome: true } },

@@ -11,6 +11,8 @@ import {
   MenuItem,
   Alert,
   FormControl,
+  FormControlLabel,
+  Switch,
   InputLabel,
   Select,
   Chip,
@@ -39,6 +41,7 @@ interface ContoFormProps {
     id: string;
     nome: string;
     tipoContoId: string;
+    liquido: boolean;
     note: string | null;
     intestatari: { intestatario: Intestatario }[];
   } | null;
@@ -48,6 +51,7 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
   const [form, setForm] = useState({
     nome: "",
     tipoContoId: "",
+    liquido: true,
     note: "",
     intestatariIds: [] as string[],
   });
@@ -64,6 +68,7 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
       setForm({
         nome: editData?.nome ?? "",
         tipoContoId: editData?.tipoContoId ?? "",
+        liquido: editData?.liquido ?? true,
         note: editData?.note ?? "",
         intestatariIds: editData?.intestatari?.map((i) => i.intestatario.id) ?? [],
       });
@@ -100,6 +105,7 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
         body: JSON.stringify({
           nome: form.nome,
           tipoContoId: form.tipoContoId,
+          liquido: form.liquido,
           note: form.note || null,
           intestatariIds: form.intestatariIds,
         }),
@@ -165,6 +171,17 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
             value={form.note}
             onChange={handleChange("note")}
             margin="normal"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.liquido}
+                onChange={(e) => setForm({ ...form, liquido: e.target.checked })}
+                color="primary"
+              />
+            }
+            label="Includi in patrimonio liquido (dashboard)"
+            sx={{ mt: 1, mb: 0.5 }}
           />
           <FormControl fullWidth margin="normal" required>
             <InputLabel>Intestatari</InputLabel>

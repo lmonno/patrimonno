@@ -11,6 +11,8 @@ export const createContoSchema = z.object({
 export const updateContoSchema = z.object({
   nome: z.string().min(1).optional(),
   tipoContoId: z.string().min(1).optional(),
+  liquido: z.boolean().optional(),
+  archiviato: z.boolean().optional(),
   note: z.string().optional().nullable(),
   intestatariIds: z.array(z.string().min(1)).min(1).optional(),
 });
