@@ -26,13 +26,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Foglio "Entrate Storiche" non trovato. Usa il template originale.' }, { status: 400 });
     }
 
-    // Colonne fisse: 1=intestatarioId, 2=tipoEntrataId, 3=Intestatario, 4=Tipo Entrata
+    // Colonne fisse: 1=intestatarioIds, 2=tipoEntrataId, 3=Intestatari, 4=Tipo Entrata
     const FIXED_COLS = 4;
     const monthColumns: { colIndex: number; anno: number; mese: number }[] = [];
 
     const headerRow = sheet.getRow(1);
     headerRow.eachCell((cell, colNumber) => {
       if (colNumber <= FIXED_COLS) return;
+
+      // Supporta sia Date Excel che pattern MM/YYYY testo
+      const raw = cell.value;
+      if (raw instanceof Date) {
+        monthColumns.push({
+          colIndex: colNumber,
+          mese: raw.getMonth() + 1,
+          anno: raw.getFullYear(),
+        });
+        return;
+      }
+
       const val = cell.text?.trim();
       if (!val) return;
       const match = val.match(/^(\d{2})\/(\d{4})$/);
@@ -55,9 +67,13 @@ export async function POST(request: NextRequest) {
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber === 1) return;
 
-      const intestatarioId = row.getCell(1).text?.trim();
+      // Colonna 1: intestatarioIds (comma-separated)
+      const intestatarioIdsRaw = row.getCell(1).text?.trim();
       const tipoEntrataId = row.getCell(2).text?.trim();
-      if (!intestatarioId || !tipoEntrataId) return;
+      if (!intestatarioIdsRaw || !tipoEntrataId) return;
+
+      const intestatarioIds = intestatarioIdsRaw.split(",").map((id) => id.trim()).filter(Boolean);
+      if (intestatarioIds.length === 0) return;
 
       for (const { colIndex, anno, mese } of monthColumns) {
         const cell = row.getCell(colIndex);
@@ -82,14 +98,18 @@ export async function POST(request: NextRequest) {
         if (rawVal === null || rawVal === undefined || rawVal === "") continue;
 
         const valoreStr = typeof rawVal === "number" ? rawVal : String(rawVal).replace(",", ".");
-        const valore = parseFloat(String(valoreStr));
+        const valoreTotale = parseFloat(String(valoreStr));
 
-        if (isNaN(valore)) {
+        if (isNaN(valoreTotale)) {
           righeConErrore.push(`Riga ${rowNumber}, ${String(mese).padStart(2, "0")}/${anno}: valore non numerico "${rawVal}"`);
           continue;
         }
 
-        entrateToUpsert.push({ intestatarioId, tipoEntrataId, anno, mese, valore });
+        // Dividi il valore equamente tra gli intestatari
+        const valorePerIntestatario = Math.round((valoreTotale / intestatarioIds.length) * 100) / 100;
+        for (const intestatarioId of intestatarioIds) {
+          entrateToUpsert.push({ intestatarioId, tipoEntrataId, anno, mese, valore: valorePerIntestatario });
+        }
       }
     });
 

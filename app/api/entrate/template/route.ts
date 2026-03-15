@@ -29,26 +29,25 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    const months: { anno: number; mese: number; label: string }[] = [];
+    const months: { anno: number; mese: number }[] = [];
     for (let anno = startAnno; anno <= endAnno; anno++) {
       const firstMese = anno === startAnno ? startMese : 1;
       const lastMese = anno === endAnno ? endMese : 12;
       for (let mese = firstMese; mese <= lastMese; mese++) {
-        months.push({
-          anno,
-          mese,
-          label: `${String(mese).padStart(2, "0")}/${anno}`,
-        });
+        months.push({ anno, mese });
       }
     }
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Entrate Storiche");
 
-    const fixedHeaders = ["intestatarioId", "tipoEntrataId", "Intestatario", "Tipo Entrata"];
-    sheet.addRow([...fixedHeaders, ...months.map((m) => m.label)]);
+    // Header: colonne fisse + colonne mese come date
+    const fixedHeaders = ["intestatarioIds", "tipoEntrataId", "Intestatari", "Tipo Entrata"];
+    const headerRow = sheet.addRow([
+      ...fixedHeaders,
+      ...months.map((m) => new Date(m.anno, m.mese - 1, 1)),
+    ]);
 
-    const headerRow = sheet.getRow(1);
     headerRow.font = { bold: true };
     headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD5E8D4" } };
 
@@ -57,24 +56,29 @@ export async function GET(request: NextRequest) {
     sheet.getColumn(1).width = 30;
     sheet.getColumn(2).hidden = true;
     sheet.getColumn(2).width = 30;
-    sheet.getColumn(3).width = 25;
+    sheet.getColumn(3).width = 30;
     sheet.getColumn(4).width = 20;
+
+    // Colonne mese: header in formato data MM/YYYY, celle dati in formato numerico
     for (let i = 5; i <= 4 + months.length; i++) {
-      sheet.getColumn(i).width = 12;
+      sheet.getColumn(i).width = 14;
       sheet.getColumn(i).numFmt = '#,##0.00';
+      headerRow.getCell(i).numFmt = 'MM/YYYY';
     }
 
-    // Una riga per ogni combinazione intestatario × tipo entrata
-    for (const intestatario of intestatari) {
-      for (const tipo of tipiEntrata) {
-        sheet.addRow([
-          intestatario.id,
-          tipo.id,
-          `${intestatario.nome} ${intestatario.cognome}`,
-          tipo.nome,
-          ...months.map(() => null),
-        ]);
-      }
+    // Tutti gli intestatari come stringa
+    const allIds = intestatari.map((i) => i.id).join(",");
+    const allNames = intestatari.map((i) => `${i.nome} ${i.cognome}`).join(", ");
+
+    // Una riga per ogni tipo entrata (tutti gli intestatari di default)
+    for (const tipo of tipiEntrata) {
+      sheet.addRow([
+        allIds,
+        tipo.id,
+        allNames,
+        tipo.nome,
+        ...months.map(() => null),
+      ]);
     }
 
     sheet.views = [{ state: "frozen", xSplit: 4, ySplit: 1 }];
