@@ -148,16 +148,22 @@ export async function GET(request: NextRequest) {
     const meseSelezionato = storico.find(
       (s) => s.anno === annoRif && s.mese === meseRif
     );
-    // Cerco il saldo di esattamente 12 mesi prima
+    // Cerco il saldo di esattamente 12 mesi prima (calcolato dai conti, non dallo storico)
     let mese12Fa = meseRif - 12;
     let anno12Fa = annoRif;
     while (mese12Fa <= 0) {
       mese12Fa += 12;
       anno12Fa -= 1;
     }
-    const dodiciMesiFa = storico.find(
-      (s) => s.anno === anno12Fa && s.mese === mese12Fa
-    );
+    let totale12Fa = 0;
+    for (const { conto, quota } of contiConQuota) {
+      const saldo = conto.saldi.find(
+        (s) => s.anno === anno12Fa && s.mese === mese12Fa
+      );
+      if (saldo) {
+        totale12Fa += Number(saldo.valore) * quota;
+      }
+    }
 
     // Flussi straordinari nel periodo (dal mese dopo il mese 12fa fino al mese di riferimento incluso)
     // Range: dal giorno 1 del mese successivo a 12 mesi fa, fino all'ultimo giorno del mese di riferimento
@@ -212,12 +218,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (meseSelezionato) {
-      const totale12Fa = dodiciMesiFa?.totale ?? 0;
       risparmioMedioMensile =
         Math.round(((meseSelezionato.totale - totale12Fa - totaleFlussi) / 12) * 100) / 100;
     }
 
-    // --- Risparmio ultimo mese (liquido): saldo mese rif - saldo mese precedente ---
+    // --- Risparmio ultimo mese (liquido): saldo mese rif - saldo mese precedente - flussi straordinari del mese ---
     let mesePrev = meseRif - 1;
     let annoPrev = annoRif;
     if (mesePrev <= 0) {
@@ -232,7 +237,45 @@ export async function GET(request: NextRequest) {
         saldoMesePrecedente += Number(saldo.valore) * quota;
       }
     }
-    risparmioUltimoMese = Math.round((saldoAttuale - saldoMesePrecedente) * 100) / 100;
+
+    // Flussi straordinari del solo mese di riferimento
+    const dataInizioMese = new Date(annoRif, meseRif - 1, 1);
+    const dataFineMese = new Date(annoRif, meseRif, 0);
+    const whereFlussiMese: Record<string, unknown> = {
+      data: { gte: dataInizioMese, lte: dataFineMese },
+    };
+    if (selectedIds) {
+      whereFlussiMese.OR = [
+        { intestatarioId: { in: selectedIds } },
+        { intestatarioId: null },
+      ];
+    }
+    const flussiMese = await prisma.flussoStraordinario.findMany({
+      where: whereFlussiMese,
+      select: { importo: true, intestatarioId: true },
+    });
+    let totaleFlussiMese = 0;
+    if (selectedIds) {
+      const numSelected = selectedIds.length;
+      const tuttiInt = await prisma.intestatario.findMany({
+        where: { deletedAt: null },
+        select: { id: true },
+      });
+      const numTotaleInt = tuttiInt.length;
+      for (const f of flussiMese) {
+        if (f.intestatarioId === null) {
+          totaleFlussiMese += Number(f.importo) * (numSelected / numTotaleInt);
+        } else {
+          totaleFlussiMese += Number(f.importo);
+        }
+      }
+    } else {
+      for (const f of flussiMese) {
+        totaleFlussiMese += Number(f.importo);
+      }
+    }
+
+    risparmioUltimoMese = Math.round((saldoAttuale - saldoMesePrecedente - totaleFlussiMese) * 100) / 100;
 
     return NextResponse.json({
       saldoAttuale: Math.round(saldoAttuale * 100) / 100,
