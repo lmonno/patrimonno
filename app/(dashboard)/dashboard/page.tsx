@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -31,10 +31,20 @@ import {
   Legend,
 } from "recharts";
 
+const COLORI_INTESTATARI = [
+  "#2e7d32", "#1565c0", "#6a1b9a", "#c62828", "#ef6c00",
+  "#00838f", "#4e342e", "#37474f", "#ad1457", "#283593",
+];
+
 interface Intestatario {
   id: string;
   nome: string;
   cognome: string;
+}
+
+interface TipoEntrata {
+  id: string;
+  nome: string;
 }
 
 interface Patrimonio {
@@ -51,6 +61,12 @@ interface EntrataStorico {
   mese: number;
   totale: number;
   mediana: number;
+  perIntestatario: Record<string, number>;
+}
+
+interface IntNome {
+  id: string;
+  nome: string;
 }
 
 export default function DashboardPage() {
@@ -70,14 +86,21 @@ export default function DashboardPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [patrimonio, setPatrimonio] = useState<Patrimonio | null>(null);
   const [entrateStorico, setEntrateStorico] = useState<EntrataStorico[]>([]);
+  const [entrateIntestatari, setEntrateIntestatari] = useState<IntNome[]>([]);
+  const [tipiEntrata, setTipiEntrata] = useState<TipoEntrata[]>([]);
+  const [selectedTipoIds, setSelectedTipoIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingEntrate, setLoadingEntrate] = useState(true);
 
-  // Carica intestatari al mount
+  // Carica intestatari e tipi entrata al mount
   useEffect(() => {
     fetch("/api/intestatari")
       .then((r) => r.json())
       .then(setIntestatari)
+      .catch(() => {});
+    fetch("/api/tipi-entrata")
+      .then((r) => r.json())
+      .then(setTipiEntrata)
       .catch(() => {});
   }, []);
 
@@ -104,17 +127,19 @@ export default function DashboardPage() {
     try {
       const queryParams = new URLSearchParams({ anno: String(anno), mese: String(mese) });
       if (selectedIds.length > 0) queryParams.set("intestatariIds", selectedIds.join(","));
+      if (selectedTipoIds.length > 0) queryParams.set("tipoEntrataIds", selectedTipoIds.join(","));
       const res = await fetch(`/api/entrate/storico?${queryParams}`);
       if (res.ok) {
         const data = await res.json();
         setEntrateStorico(data.storico);
+        setEntrateIntestatari(data.intestatariNomi ?? []);
       }
     } catch {
       // silent
     } finally {
       setLoadingEntrate(false);
     }
-  }, [selectedIds, anno, mese]);
+  }, [selectedIds, selectedTipoIds, anno, mese]);
 
   useEffect(() => {
     fetchPatrimonio();
@@ -127,7 +152,14 @@ export default function DashboardPage() {
     );
   };
 
+  const toggleTipoEntrata = (id: string) => {
+    setSelectedTipoIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
   const tuttiSelezionati = selectedIds.length === 0;
+  const tuttiTipiSelezionati = selectedTipoIds.length === 0;
 
   const formatEuro = (value: number) =>
     Math.round(value).toLocaleString("de-DE") + " €";
@@ -135,12 +167,29 @@ export default function DashboardPage() {
   const risparmioPositivo = (patrimonio?.risparmioMedioMensile ?? 0) >= 0;
   const risparmioUltimoMesePositivo = (patrimonio?.risparmioUltimoMese ?? 0) >= 0;
 
-  // Dati grafico
-  const chartData = entrateStorico.map((e) => ({
-    label: `${String(e.mese).padStart(2, "0")}/${String(e.anno).slice(-2)}`,
-    entrate: e.totale,
-    mediana: e.mediana,
-  }));
+  // Mappa colori intestatari
+  const coloriMap = useMemo(() => {
+    const map = new Map<string, string>();
+    entrateIntestatari.forEach((int, i) => {
+      map.set(int.id, COLORI_INTESTATARI[i % COLORI_INTESTATARI.length]);
+    });
+    return map;
+  }, [entrateIntestatari]);
+
+  // Dati grafico con breakdown per intestatario
+  const chartData = useMemo(() =>
+    entrateStorico.map((e) => {
+      const punto: Record<string, unknown> = {
+        label: `${String(e.mese).padStart(2, "0")}/${String(e.anno).slice(-2)}`,
+        mediana: e.mediana,
+      };
+      for (const int of entrateIntestatari) {
+        punto[int.id] = e.perIntestatario?.[int.id] ?? 0;
+      }
+      return punto;
+    }),
+    [entrateStorico, entrateIntestatari]
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const formatTooltipValue = (value: any) => formatEuro(Number(value));
@@ -280,6 +329,36 @@ export default function DashboardPage() {
         <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
           Entrate mensili
         </Typography>
+
+        {/* Filtro categorie entrate */}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            Filtra per categoria
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+            <Chip
+              label="Tutte"
+              size="small"
+              color={tuttiTipiSelezionati ? "primary" : "default"}
+              variant={tuttiTipiSelezionati ? "filled" : "outlined"}
+              onClick={() => setSelectedTipoIds([])}
+            />
+            {tipiEntrata.map((tipo) => {
+              const isSelected = selectedTipoIds.includes(tipo.id);
+              return (
+                <Chip
+                  key={tipo.id}
+                  label={tipo.nome}
+                  size="small"
+                  color={isSelected ? "primary" : "default"}
+                  variant={isSelected ? "filled" : "outlined"}
+                  onClick={() => toggleTipoEntrata(tipo.id)}
+                />
+              );
+            })}
+          </Box>
+        </Box>
+
         {loadingEntrate ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
             <CircularProgress />
@@ -297,13 +376,13 @@ export default function DashboardPage() {
                   <XAxis
                     dataKey="label"
                     tick={{ fontSize: isMobile ? 10 : 12 }}
-                    interval={isMobile ? 2 : 0}
+                    interval={isMobile ? 5 : 2}
                     angle={isMobile ? -45 : 0}
                     textAnchor={isMobile ? "end" : "middle"}
                   />
                   <YAxis
                     tick={{ fontSize: isMobile ? 10 : 12 }}
-                    tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
+                    tickFormatter={(v: number) => `${(v / 1000).toFixed(1).replace(".", ",")}k`}
                   />
                   <Tooltip
                     formatter={formatTooltipValue}
@@ -312,13 +391,16 @@ export default function DashboardPage() {
                   <Legend
                     wrapperStyle={{ fontSize: isMobile ? 11 : 13 }}
                   />
-                  <Bar
-                    dataKey="entrate"
-                    name="Entrate"
-                    fill="#2e7d32"
-                    opacity={0.7}
-                    radius={[4, 4, 0, 0]}
-                  />
+                  {entrateIntestatari.map((int) => (
+                    <Bar
+                      key={int.id}
+                      dataKey={int.id}
+                      name={int.nome}
+                      stackId="entrate"
+                      fill={coloriMap.get(int.id) ?? "#2e7d32"}
+                      opacity={0.7}
+                    />
+                  ))}
                   <Line
                     dataKey="mediana"
                     name="Mediana 12 mesi"
