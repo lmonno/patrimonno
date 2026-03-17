@@ -15,6 +15,11 @@ export async function GET(request: NextRequest) {
       ? intestatariIdsParam.split(",").filter(Boolean)
       : null;
 
+    const tipoEntrataIdsParam = searchParams.get("tipoEntrataIds");
+    const selectedTipoIds = tipoEntrataIdsParam
+      ? tipoEntrataIdsParam.split(",").filter(Boolean)
+      : null;
+
     // Mese di riferimento (default: mese precedente)
     const now = new Date();
     let defaultMese = now.getMonth();
@@ -26,9 +31,9 @@ export async function GET(request: NextRequest) {
     const meseRif = parseInt(searchParams.get("mese") || String(defaultMese)) || defaultMese;
     const annoRif = parseInt(searchParams.get("anno") || String(defaultAnno)) || defaultAnno;
 
-    // Genera periodi: 24 mesi che terminano al mese di riferimento (per avere 12 mesi di mediana mobile)
+    // Genera periodi: 48 mesi che terminano al mese di riferimento (36 mesi + 12 per mediana mobile)
     const periodi: { anno: number; mese: number }[] = [];
-    for (let i = 23; i >= 0; i--) {
+    for (let i = 47; i >= 0; i--) {
       let m = meseRif - i;
       let a = annoRif;
       while (m <= 0) {
@@ -38,45 +43,67 @@ export async function GET(request: NextRequest) {
       periodi.push({ anno: a, mese: m });
     }
 
-    // Filtro intestatari
-    const whereIntestatario = selectedIds
-      ? { intestatarioId: { in: selectedIds } }
-      : {};
+    // Filtri
+    const whereClause: Record<string, unknown> = {};
+    if (selectedIds) {
+      whereClause.intestatarioId = { in: selectedIds };
+    }
+    if (selectedTipoIds) {
+      whereClause.tipoEntrataId = { in: selectedTipoIds };
+    }
 
-    // Carica tutte le entrate nel range
-    const primoP = periodi[0];
-    const ultimoP = periodi[periodi.length - 1];
+    // Carica tutte le entrate nel range con intestatario
     const entrate = await prisma.entrata.findMany({
       where: {
-        ...whereIntestatario,
+        ...whereClause,
         OR: periodi.map((p) => ({ anno: p.anno, mese: p.mese })),
       },
       select: {
         anno: true,
         mese: true,
         valore: true,
+        intestatario: {
+          select: { id: true, nome: true, cognome: true },
+        },
       },
     });
 
-    // Aggrega per mese
-    const mapMensile = new Map<string, number>();
+    // Mappa intestatari presenti
+    const intestatariMap = new Map<string, string>();
     for (const e of entrate) {
-      const key = `${e.anno}-${e.mese}`;
-      mapMensile.set(key, (mapMensile.get(key) ?? 0) + Number(e.valore));
+      const chiave = e.intestatario.id;
+      if (!intestatariMap.has(chiave)) {
+        intestatariMap.set(chiave, `${e.intestatario.nome} ${e.intestatario.cognome}`);
+      }
+    }
+    const intestatariNomi = Array.from(intestatariMap.entries()).map(([id, nome]) => ({ id, nome }));
+
+    // Aggrega per mese e intestatario
+    const mapPerIntestatario = new Map<string, number>();
+    const mapTotale = new Map<string, number>();
+    for (const e of entrate) {
+      const meseKey = `${e.anno}-${e.mese}`;
+      const intKey = `${meseKey}::${e.intestatario.id}`;
+      const val = Number(e.valore);
+      mapPerIntestatario.set(intKey, (mapPerIntestatario.get(intKey) ?? 0) + val);
+      mapTotale.set(meseKey, (mapTotale.get(meseKey) ?? 0) + val);
     }
 
-    // Costruisci array con totali (0 se mese senza dati)
-    const datiCompleti = periodi.map((p) => ({
-      anno: p.anno,
-      mese: p.mese,
-      totale: Math.round((mapMensile.get(`${p.anno}-${p.mese}`) ?? 0) * 100) / 100,
-    }));
+    // Costruisci dati completi (48 mesi)
+    const datiCompleti = periodi.map((p) => {
+      const meseKey = `${p.anno}-${p.mese}`;
+      const totale = Math.round((mapTotale.get(meseKey) ?? 0) * 100) / 100;
+      const perIntestatario: Record<string, number> = {};
+      for (const [id] of intestatariMap) {
+        const val = mapPerIntestatario.get(`${meseKey}::${id}`) ?? 0;
+        perIntestatario[id] = Math.round(val * 100) / 100;
+      }
+      return { anno: p.anno, mese: p.mese, totale, perIntestatario };
+    });
 
-    // Calcola mediana mobile a 12 mesi (solo per ultimi 12 mesi)
+    // Calcola mediana mobile a 12 mesi (ultimi 36 mesi)
     const storico = datiCompleti.slice(12).map((punto, i) => {
-      // Finestra: 12 mesi che terminano a questo mese (incluso)
       const finestra = datiCompleti.slice(i, i + 12).map((d) => d.totale);
-      // Mediana
       const sorted = [...finestra].sort((a, b) => a - b);
       const mid = Math.floor(sorted.length / 2);
       const mediana =
@@ -89,10 +116,11 @@ export async function GET(request: NextRequest) {
         mese: punto.mese,
         totale: punto.totale,
         mediana: Math.round(mediana * 100) / 100,
+        perIntestatario: punto.perIntestatario,
       };
     });
 
-    return NextResponse.json({ storico });
+    return NextResponse.json({ storico, intestatariNomi });
   } catch (error) {
     console.error("Errore GET entrate/storico:", error);
     return NextResponse.json(

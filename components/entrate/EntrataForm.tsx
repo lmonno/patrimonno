@@ -74,7 +74,8 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
   const [anno, setAnno] = useState(defaultAnno);
   const [mese, setMese] = useState(defaultMese);
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // "comune" = entrate comuni divise tra tutti, oppure un singolo intestatarioId
+  const [selectedChip, setSelectedChip] = useState<string>("comune");
   const [tipiEntrata, setTipiEntrata] = useState<TipoEntrata[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [prevValues, setPrevValues] = useState<Record<string, string>>({});
@@ -85,16 +86,19 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  const loadData = useCallback(async (a: number, m: number, selIds: string[]) => {
+  const loadData = useCallback(async (a: number, m: number, chip: string) => {
     setLoading(true);
     setError("");
     try {
       const prev = getPreviousMonth(a, m);
+
+      // Se chip è un intestatarioId, filtriamo per quello; altrimenti carichiamo tutto
+      const intFilter = chip !== "comune" ? `&intestatarioId=${chip}` : "";
       const [intRes, tipiRes, currentRes, prevRes] = await Promise.all([
         fetch("/api/intestatari"),
         fetch("/api/tipi-entrata"),
-        fetch(`/api/entrate?anno=${a}&mese=${m}`),
-        fetch(`/api/entrate?anno=${prev.anno}&mese=${prev.mese}`),
+        fetch(`/api/entrate?anno=${a}&mese=${m}${intFilter}`),
+        fetch(`/api/entrate?anno=${prev.anno}&mese=${prev.mese}${intFilter}`),
       ]);
 
       const intData: Intestatario[] = await intRes.json();
@@ -105,17 +109,13 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
       setIntestatari(intData);
       setTipiEntrata(tipiData);
 
-      // Se nessun intestatario selezionato, seleziona tutti
-      const activeIds = selIds.length > 0 ? selIds : intData.map((i) => i.id);
-      if (selIds.length === 0) setSelectedIds([]);
-
-      // Mappa valori precedenti: somma per tipo entrata degli intestatari selezionati
+      // Mappa valori precedenti: somma per tipo entrata
       const prevMap: Record<string, string> = {};
       for (const tipo of tipiData) {
         let sum = 0;
         let found = false;
         for (const e of prevData) {
-          if (e.tipoEntrataId === tipo.id && activeIds.includes(e.intestatarioId)) {
+          if (e.tipoEntrataId === tipo.id) {
             sum += parseFloat(e.valore.toString());
             found = true;
           }
@@ -124,13 +124,13 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
       }
       setPrevValues(prevMap);
 
-      // Pre-popola: somma valori correnti per tipo entrata degli intestatari selezionati
+      // Pre-popola: somma valori correnti per tipo entrata
       const newValues: Record<string, string> = {};
       for (const tipo of tipiData) {
         let sum = 0;
         let found = false;
         for (const e of currentData) {
-          if (e.tipoEntrataId === tipo.id && activeIds.includes(e.intestatarioId)) {
+          if (e.tipoEntrataId === tipo.id) {
             sum += parseFloat(e.valore.toString());
             found = true;
           }
@@ -155,26 +155,21 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     if (open) {
       setAnno(defaultAnno);
       setMese(defaultMese);
-      setSelectedIds([]);
-      loadData(defaultAnno, defaultMese, []);
+      setSelectedChip("comune");
+      loadData(defaultAnno, defaultMese, "comune");
     }
   }, [open, defaultAnno, defaultMese, loadData]);
 
   const handlePeriodChange = (newAnno: number, newMese: number) => {
     setAnno(newAnno);
     setMese(newMese);
-    loadData(newAnno, newMese, selectedIds);
+    loadData(newAnno, newMese, selectedChip);
   };
 
-  const toggleIntestatario = (id: string) => {
-    const newIds = selectedIds.includes(id)
-      ? selectedIds.filter((i) => i !== id)
-      : [...selectedIds, id];
-    setSelectedIds(newIds);
-    loadData(anno, mese, newIds);
+  const handleChipSelect = (chip: string) => {
+    setSelectedChip(chip);
+    loadData(anno, mese, chip);
   };
-
-  const tuttiSelezionati = selectedIds.length === 0;
 
   const handleValueChange = (tipoId: string, value: string) => {
     setValues((prev) => ({ ...prev, [tipoId]: value }));
@@ -205,23 +200,37 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     setSaving(true);
     setError("");
 
-    // Intestatari effettivi: se nessuno selezionato = tutti
-    const activeIds = selectedIds.length > 0 ? selectedIds : intestatari.map((i) => i.id);
-    const numIntestatari = activeIds.length;
-
     const entrate: { intestatarioId: string; tipoEntrataId: string; anno: number; mese: number; valore: string }[] = [];
 
-    for (const tipo of tipiEntrata) {
-      const resolved = resolveValue(tipo.id);
-      if (resolved !== null) {
-        const valorePerIntestatario = Math.round((parseFloat(resolved) / numIntestatari) * 100) / 100;
-        for (const intId of activeIds) {
+    if (selectedChip === "comune") {
+      // Comune: dividi equamente tra tutti gli intestatari
+      const numIntestatari = intestatari.length;
+      for (const tipo of tipiEntrata) {
+        const resolved = resolveValue(tipo.id);
+        if (resolved !== null) {
+          const valorePerIntestatario = Math.round((parseFloat(resolved) / numIntestatari) * 100) / 100;
+          for (const int of intestatari) {
+            entrate.push({
+              intestatarioId: int.id,
+              tipoEntrataId: tipo.id,
+              anno,
+              mese,
+              valore: valorePerIntestatario.toString(),
+            });
+          }
+        }
+      }
+    } else {
+      // Singolo intestatario: salva direttamente
+      for (const tipo of tipiEntrata) {
+        const resolved = resolveValue(tipo.id);
+        if (resolved !== null) {
           entrate.push({
-            intestatarioId: intId,
+            intestatarioId: selectedChip,
             tipoEntrataId: tipo.id,
             anno,
             mese,
-            valore: valorePerIntestatario.toString(),
+            valore: resolved,
           });
         }
       }
@@ -300,35 +309,32 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
           <MonthYearPicker anno={anno} mese={mese} onChange={handlePeriodChange} />
         </Box>
 
-        {/* Selettore intestatari */}
+        {/* Selettore intestatario */}
         {intestatari.length > 0 && (
           <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-              Intestatari
+              Intestatario
             </Typography>
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+              {intestatari.map((int) => (
+                <Chip
+                  key={int.id}
+                  label={`${int.nome} ${int.cognome}`}
+                  color={selectedChip === int.id ? "primary" : "default"}
+                  variant={selectedChip === int.id ? "filled" : "outlined"}
+                  onClick={() => handleChipSelect(int.id)}
+                />
+              ))}
               <Chip
-                label="Tutti"
-                color={tuttiSelezionati ? "primary" : "default"}
-                variant={tuttiSelezionati ? "filled" : "outlined"}
-                onClick={() => { setSelectedIds([]); loadData(anno, mese, []); }}
+                label="Comune"
+                color={selectedChip === "comune" ? "primary" : "default"}
+                variant={selectedChip === "comune" ? "filled" : "outlined"}
+                onClick={() => handleChipSelect("comune")}
               />
-              {intestatari.map((int) => {
-                const isSelected = selectedIds.includes(int.id);
-                return (
-                  <Chip
-                    key={int.id}
-                    label={`${int.nome} ${int.cognome}`}
-                    color={isSelected ? "primary" : "default"}
-                    variant={isSelected ? "filled" : "outlined"}
-                    onClick={() => toggleIntestatario(int.id)}
-                  />
-                );
-              })}
             </Box>
-            {!tuttiSelezionati && selectedIds.length > 1 && (
+            {selectedChip === "comune" && (
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                Il valore inserito viene diviso equamente tra gli intestatari selezionati
+                Il valore inserito viene diviso equamente tra tutti gli intestatari
               </Typography>
             )}
           </Box>
