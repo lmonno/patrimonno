@@ -30,6 +30,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import UploadIcon from "@mui/icons-material/Upload";
+import DownloadIcon from "@mui/icons-material/Download";
 import EditIcon from "@mui/icons-material/Edit";
 import FunctionsIcon from "@mui/icons-material/Functions";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
@@ -185,6 +186,7 @@ export default function SaldiTable() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
 
   // Inline editing
@@ -345,6 +347,25 @@ export default function SaldiTable() {
     }
   };
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/saldi/template?daAnno=${anno}&daMese=${mese}&aAnno=${anno}&aMese=${mese}`);
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `saldi_${anno}_${String(mese).padStart(2, "0")}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setSnackbar({ open: true, message: "Errore nel download", severity: "error" });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const totale = saldi.reduce((sum, s) => sum + parseFloat(s.valore.toString()), 0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -421,6 +442,15 @@ export default function SaldiTable() {
               {reordering ? "Fine" : "Riordina"}
             </Button>
           )}
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownload}
+            disabled={downloading}
+            size={isMobile ? "small" : "medium"}
+          >
+            {isMobile ? "Scarica" : "Scarica Excel"}
+          </Button>
           <Button
             variant="outlined"
             startIcon={<UploadIcon />}

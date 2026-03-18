@@ -30,6 +30,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import UploadIcon from "@mui/icons-material/Upload";
+import DownloadIcon from "@mui/icons-material/Download";
 import FlussoForm from "./FlussoForm";
 import ImportFlussiDialog from "./ImportFlussiDialog";
 import EmptyState from "@/components/ui/EmptyState";
@@ -72,6 +73,7 @@ export default function FlussiTable() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
 
   const theme = useTheme();
@@ -151,6 +153,25 @@ export default function FlussiTable() {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/flussi-straordinari/template");
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `flussi_straordinari.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setSnackbar({ open: true, message: "Errore nel download", severity: "error" });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -177,6 +198,15 @@ export default function FlussiTable() {
               <MenuItem key={y} value={y}>{y}</MenuItem>
             ))}
           </TextField>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownload}
+            disabled={downloading}
+            size={isMobile ? "small" : "medium"}
+          >
+            {isMobile ? "Scarica" : "Scarica Excel"}
+          </Button>
           <Button
             variant="outlined"
             startIcon={<UploadIcon />}
