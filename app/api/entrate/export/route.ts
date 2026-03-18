@@ -45,7 +45,6 @@ export async function GET() {
     sheet.getColumn(3).width = 30;
     sheet.getColumn(4).width = 20;
     sheet.getColumn(5).width = 14;
-    sheet.getColumn(5).numFmt = "MM/YYYY";
     sheet.getColumn(6).width = 14;
     sheet.getColumn(6).numFmt = "#,##0.00";
 
@@ -55,10 +54,9 @@ export async function GET() {
         entrata.tipoEntrata.id,
         `${entrata.intestatario.nome} ${entrata.intestatario.cognome}`,
         entrata.tipoEntrata.nome,
-        new Date(entrata.anno, entrata.mese - 1, 1),
+        `${String(entrata.mese).padStart(2, "0")}/${entrata.anno}`,
         parseFloat(entrata.valore.toString()),
       ]);
-      row.getCell(5).numFmt = "MM/YYYY";
     }
 
     sheet.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
