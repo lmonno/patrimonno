@@ -156,13 +156,13 @@ export default function FlussiTable() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const res = await fetch(`/api/flussi-straordinari/export?anno=${anno}`);
+      const res = await fetch("/api/flussi-straordinari/export");
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `flussi_straordinari.xlsx`;
+      a.download = "export_flussi_straordinari.xlsx";
       a.click();
       URL.revokeObjectURL(url);
     } catch {

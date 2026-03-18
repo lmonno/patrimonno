@@ -350,13 +350,13 @@ export default function SaldiTable() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const res = await fetch(`/api/saldi/export?anno=${anno}&mese=${mese}`);
+      const res = await fetch("/api/saldi/export");
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `saldi_${anno}_${String(mese).padStart(2, "0")}.xlsx`;
+      a.download = "export_saldi.xlsx";
       a.click();
       URL.revokeObjectURL(url);
     } catch {

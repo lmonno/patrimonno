@@ -1,25 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ExcelJS from "exceljs";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const anno = parseInt(searchParams.get("anno") ?? new Date().getFullYear().toString());
-
     const flussi = await prisma.flussoStraordinario.findMany({
-      where: {
-        data: {
-          gte: new Date(`${anno}-01-01`),
-          lt: new Date(`${anno + 1}-01-01`),
-        },
-      },
       include: {
         categoria: { select: { nome: true } },
         intestatario: { select: { nome: true, cognome: true } },
@@ -63,7 +54,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(buffer as ArrayBuffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="flussi_straordinari_${anno}.xlsx"`,
+        "Content-Disposition": `attachment; filename="export_flussi_straordinari.xlsx"`,
       },
     });
   } catch (error) {

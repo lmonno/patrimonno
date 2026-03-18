@@ -1,21 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ExcelJS from "exceljs";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const anno = parseInt(searchParams.get("anno") ?? new Date().getFullYear().toString());
-    const mese = parseInt(searchParams.get("mese") ?? (new Date().getMonth() + 1).toString());
-
     const entrate = await prisma.entrata.findMany({
-      where: { anno, mese },
       include: {
         intestatario: { select: { id: true, nome: true, cognome: true } },
         tipoEntrata: { select: { id: true, nome: true } },
@@ -23,6 +18,8 @@ export async function GET(request: NextRequest) {
       orderBy: [
         { intestatario: { cognome: "asc" } },
         { tipoEntrata: { nome: "asc" } },
+        { anno: "asc" },
+        { mese: "asc" },
       ],
     });
 
@@ -58,7 +55,7 @@ export async function GET(request: NextRequest) {
         entrata.tipoEntrata.id,
         `${entrata.intestatario.nome} ${entrata.intestatario.cognome}`,
         entrata.tipoEntrata.nome,
-        new Date(anno, mese - 1, 1),
+        new Date(entrata.anno, entrata.mese - 1, 1),
         parseFloat(entrata.valore.toString()),
       ]);
       row.getCell(5).numFmt = "MM/YYYY";
@@ -70,7 +67,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(buffer as ArrayBuffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="entrate_${anno}_${String(mese).padStart(2, "0")}.xlsx"`,
+        "Content-Disposition": `attachment; filename="export_entrate.xlsx"`,
       },
     });
   } catch (error) {

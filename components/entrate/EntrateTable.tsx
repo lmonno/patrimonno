@@ -216,13 +216,13 @@ export default function EntrateTable() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const res = await fetch(`/api/entrate/export?anno=${anno}&mese=${mese}`);
+      const res = await fetch("/api/entrate/export");
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `entrate_${anno}_${String(mese).padStart(2, "0")}.xlsx`;
+      a.download = "export_entrate.xlsx";
       a.click();
       URL.revokeObjectURL(url);
     } catch {
