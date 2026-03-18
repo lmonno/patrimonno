@@ -350,7 +350,7 @@ export default function SaldiTable() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const res = await fetch(`/api/saldi/template?daAnno=${anno}&daMese=${mese}&aAnno=${anno}&aMese=${mese}`);
+      const res = await fetch(`/api/saldi/export?anno=${anno}&mese=${mese}`);
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

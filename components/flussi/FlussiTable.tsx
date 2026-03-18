@@ -156,7 +156,7 @@ export default function FlussiTable() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const res = await fetch("/api/flussi-straordinari/template");
+      const res = await fetch(`/api/flussi-straordinari/export?anno=${anno}`);
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
