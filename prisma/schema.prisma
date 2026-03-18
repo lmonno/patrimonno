@@ -124,6 +124,7 @@ model Conto {
   tipoContoId String
   liquido     Boolean   @default(true)
   archiviato  Boolean   @default(false)
+  ordine      Int       @default(0)
   note        String?   @db.Text
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

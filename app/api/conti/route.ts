@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: [{ rapporto: { nome: "asc" } }, { nome: "asc" }],
+      orderBy: [{ ordine: "asc" }, { rapporto: { nome: "asc" } }, { nome: "asc" }],
     });
 
     return NextResponse.json(conti);
