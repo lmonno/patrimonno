@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: [{ conto: { rapporto: { nome: "asc" } } }, { conto: { nome: "asc" } }],
+      orderBy: [{ conto: { ordine: "asc" } }, { conto: { rapporto: { nome: "asc" } } }, { conto: { nome: "asc" } }],
     });
 
     return NextResponse.json(saldi);

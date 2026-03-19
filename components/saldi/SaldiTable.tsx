@@ -30,8 +30,31 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import UploadIcon from "@mui/icons-material/Upload";
+import DownloadIcon from "@mui/icons-material/Download";
 import EditIcon from "@mui/icons-material/Edit";
 import FunctionsIcon from "@mui/icons-material/Functions";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+import SwapVertIcon from "@mui/icons-material/SwapVert";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import SaldoForm from "./SaldoForm";
 import ImportDialog from "./ImportDialog";
 import EmptyState from "@/components/ui/EmptyState";
@@ -80,6 +103,78 @@ function evaluateFormula(input: string, prev: number | null): number | null {
   }
 }
 
+// ─── Sortable Table Row ───
+function SortableTableRow({
+  saldo,
+  reordering,
+  children,
+}: {
+  saldo: SaldoWithConto;
+  reordering: boolean;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: saldo.contoId,
+    disabled: !reordering,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <TableRow ref={setNodeRef} style={style} hover={!reordering}>
+      {reordering && (
+        <TableCell sx={{ px: 0.5, width: 40, cursor: "grab" }} {...attributes} {...listeners}>
+          <DragIndicatorIcon color="action" />
+        </TableCell>
+      )}
+      {children}
+    </TableRow>
+  );
+}
+
+// ─── Sortable Card ───
+function SortableCard({
+  saldo,
+  reordering,
+  children,
+}: {
+  saldo: SaldoWithConto;
+  reordering: boolean;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: saldo.contoId,
+    disabled: !reordering,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <Card ref={setNodeRef} style={style} variant="outlined">
+      <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+        {reordering && (
+          <Box
+            sx={{ display: "flex", justifyContent: "center", mb: 0.5, cursor: "grab", touchAction: "none" }}
+            {...attributes}
+            {...listeners}
+          >
+            <DragIndicatorIcon color="action" />
+          </Box>
+        )}
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SaldiTable() {
   const { anno: initAnno, mese: initMese } = getCurrentPeriod();
   const [anno, setAnno] = useState(initAnno);
@@ -91,6 +186,7 @@ export default function SaldiTable() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
 
   // Inline editing
@@ -98,6 +194,15 @@ export default function SaldiTable() {
   const [editValue, setEditValue] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Drag and drop
+  const [reordering, setReordering] = useState(false);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
+  const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } });
+  const keyboardSensor = useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates });
+  const sensors = useSensors(pointerSensor, touchSensor, keyboardSensor);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -139,8 +244,8 @@ export default function SaldiTable() {
   };
 
   const startEdit = (s: SaldoWithConto) => {
+    if (reordering) return;
     setEditingId(s.id);
-    // Mostra la formula storicizzata se disponibile, altrimenti il valore numerico
     setEditValue(s.formula ?? parseFloat(s.valore.toString()).toString());
     setTimeout(() => editInputRef.current?.focus(), 50);
   };
@@ -205,9 +310,67 @@ export default function SaldiTable() {
     }
   };
 
+  // ─── Drag handlers ───
+  const contoIds = saldi.map((s) => s.contoId);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = contoIds.indexOf(active.id as string);
+    const newIndex = contoIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newSaldi = arrayMove(saldi, oldIndex, newIndex);
+    setSaldi(newSaldi);
+
+    const ordine = newSaldi.map((s, i) => ({ id: s.contoId, ordine: i + 1 }));
+
+    try {
+      const res = await fetch("/api/conti/ordine", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ordine }),
+      });
+      if (!res.ok) {
+        setSaldi(saldi);
+        setSnackbar({ open: true, message: "Errore nel salvataggio dell'ordine", severity: "error" });
+      }
+    } catch {
+      setSaldi(saldi);
+      setSnackbar({ open: true, message: "Errore di connessione", severity: "error" });
+    }
+  };
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/saldi/export");
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "export_saldi.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setSnackbar({ open: true, message: "Errore nel download", severity: "error" });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const totale = saldi.reduce((sum, s) => sum + parseFloat(s.valore.toString()), 0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  const activeSaldo = activeDragId ? saldi.find((s) => s.contoId === activeDragId) : null;
 
   const renderEditField = (s: SaldoWithConto) => {
     const editPreview = editValue.trim().startsWith("=")
@@ -268,6 +431,26 @@ export default function SaldiTable() {
         </Typography>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
           <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
+          {saldi.length > 1 && (
+            <Button
+              variant={reordering ? "contained" : "outlined"}
+              startIcon={<SwapVertIcon />}
+              onClick={() => setReordering(!reordering)}
+              size={isMobile ? "small" : "medium"}
+              color={reordering ? "warning" : "inherit"}
+            >
+              {reordering ? "Fine" : "Riordina"}
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownload}
+            disabled={downloading}
+            size={isMobile ? "small" : "medium"}
+          >
+            {isMobile ? "Scarica" : "Scarica Excel"}
+          </Button>
           <Button
             variant="outlined"
             startIcon={<UploadIcon />}
@@ -289,181 +472,200 @@ export default function SaldiTable() {
 
       {saldi.length === 0 ? (
         <EmptyState message={`Nessun saldo per ${MESI_LUNGHI[mese - 1]} ${anno}`} />
-      ) : isMobile ? (
-        /* ─── MOBILE: Card layout ─── */
-        <Stack spacing={1.5}>
-          {saldi.map((s) => {
-            const isEditing = editingId === s.id;
-            return (
-              <Card key={s.id} variant="outlined">
-                <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
-                  {/* Riga principale: nome conto + saldo */}
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body1" fontWeight={600} noWrap>
-                        {s.conto.nome}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" noWrap>
-                        {s.conto.rapporto.nome} · {s.conto.rapporto.istituto}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-                      {isEditing ? (
-                        renderEditField(s)
-                      ) : (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                          {s.formula && (
-                            <FunctionsIcon fontSize="small" color="primary" sx={{ opacity: 0.7 }} />
-                          )}
-                          <Typography
-                            variant="body1"
-                            fontWeight={700}
-                            fontFamily="monospace"
-                            onClick={() => startEdit(s)}
-                            sx={{ cursor: "pointer" }}
-                          >
-                            {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={contoIds} strategy={verticalListSortingStrategy}>
+            {isMobile ? (
+              /* ─── MOBILE: Card layout ─── */
+              <Stack spacing={1.5}>
+                {saldi.map((s) => {
+                  const isEditing = editingId === s.id;
+                  return (
+                    <SortableCard key={s.contoId} saldo={s} reordering={reordering}>
+                      {/* Riga principale: nome conto + saldo */}
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body1" fontWeight={600} noWrap>
+                            {s.conto.nome}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {s.conto.rapporto.nome} · {s.conto.rapporto.istituto}
                           </Typography>
                         </Box>
-                      )}
-                    </Box>
-                  </Box>
-
-                  {/* Tags: tipo + intestatari + azioni */}
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                      <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
-                      {s.conto.intestatari.map((i) => (
-                        <Chip
-                          key={i.intestatario.id}
-                          label={`${i.intestatario.nome} ${i.intestatario.cognome[0]}.`}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Box>
-                    <Box sx={{ display: "flex", gap: 0 }}>
-                      <IconButton size="small" onClick={() => startEdit(s)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => setDeleteId(s.id)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })}
-
-          {/* Totale mobile */}
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography fontWeight={700}>Totale</Typography>
-              <Typography fontWeight={700} fontFamily="monospace" fontSize="1.1rem">
-                {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
-              </Typography>
-            </Box>
-          </Paper>
-        </Stack>
-      ) : (
-        /* ─── DESKTOP: Table layout ─── */
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell><strong>Rapporto / Istituto</strong></TableCell>
-                <TableCell><strong>Conto</strong></TableCell>
-                <TableCell><strong>Tipo</strong></TableCell>
-                <TableCell><strong>Intestatari</strong></TableCell>
-                <TableCell align="right"><strong>Saldo</strong></TableCell>
-                <TableCell />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {saldi.map((s) => {
-                const isEditing = editingId === s.id;
-                const editPreview = isEditing && editValue.trim().startsWith("=")
-                  ? (() => {
-                      const prev = prevSaldi[s.contoId] ? parseFloat(prevSaldi[s.contoId]) : null;
-                      const result = evaluateFormula(editValue.trim(), prev);
-                      return result !== null
-                        ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €`
-                        : "Formula non valida";
-                    })()
-                  : null;
-
-                return (
-                  <TableRow key={s.id} hover>
-                    <TableCell>
-                      <Typography variant="body2">{s.conto.rapporto.nome}</Typography>
-                      <Typography variant="caption" color="text.secondary">{s.conto.rapporto.istituto}</Typography>
-                    </TableCell>
-                    <TableCell>{s.conto.nome}</TableCell>
-                    <TableCell>
-                      <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                        {s.conto.intestatari.map((i) => (
-                          <Chip
-                            key={i.intestatario.id}
-                            label={`${i.intestatario.nome} ${i.intestatario.cognome}`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        ))}
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right" sx={{ minWidth: 200 }}>
-                      {isEditing ? (
-                        renderEditField(s)
-                      ) : (
-                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 0.5 }}>
-                          {s.formula && (
-                            <Tooltip title={`Formula: ${s.formula}`} arrow>
-                              <FunctionsIcon fontSize="small" color="primary" sx={{ opacity: 0.7, cursor: "default" }} />
-                            </Tooltip>
+                        <Box sx={{ textAlign: "right", flexShrink: 0 }}>
+                          {isEditing ? (
+                            renderEditField(s)
+                          ) : (
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                              {s.formula && (
+                                <FunctionsIcon fontSize="small" color="primary" sx={{ opacity: 0.7 }} />
+                              )}
+                              <Typography
+                                variant="body1"
+                                fontWeight={700}
+                                fontFamily="monospace"
+                                onClick={() => startEdit(s)}
+                                sx={{ cursor: reordering ? "default" : "pointer" }}
+                              >
+                                {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                              </Typography>
+                            </Box>
                           )}
-                          <Typography
-                            component="span"
-                            sx={{ fontWeight: 600, fontFamily: "monospace", fontSize: "0.95rem", cursor: "pointer" }}
-                            onClick={() => startEdit(s)}
-                          >
-                            {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
-                          </Typography>
-                          <Tooltip title="Modifica saldo">
-                            <IconButton size="small" onClick={() => startEdit(s)} sx={{ opacity: 0, "&:hover": { opacity: 1 }, ".MuiTableRow-root:hover &": { opacity: 0.5 } }}>
+                        </Box>
+                      </Box>
+
+                      {/* Tags: tipo + intestatari + azioni */}
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
+                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                          <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
+                          {s.conto.intestatari.map((i) => (
+                            <Chip
+                              key={i.intestatario.id}
+                              label={`${i.intestatario.nome} ${i.intestatario.cognome[0]}.`}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          ))}
+                        </Box>
+                        {!reordering && (
+                          <Box sx={{ display: "flex", gap: 0 }}>
+                            <IconButton size="small" onClick={() => startEdit(s)}>
                               <EditIcon fontSize="small" />
                             </IconButton>
-                          </Tooltip>
-                        </Box>
-                      )}
-                    </TableCell>
-                    <TableCell align="right" sx={{ px: 1 }}>
-                      <Tooltip title="Elimina saldo">
-                        <IconButton size="small" color="error" onClick={() => setDeleteId(s.id)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              <TableRow>
-                <TableCell colSpan={4} align="right">
-                  <Typography fontWeight={700}>Totale</Typography>
-                </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, fontFamily: "monospace", fontSize: "1rem" }}>
-                  {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
-                </TableCell>
-                <TableCell />
-              </TableRow>
-            </TableBody>
-          </Table>
-        </TableContainer>
+                            <IconButton size="small" color="error" onClick={() => setDeleteId(s.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        )}
+                      </Box>
+                    </SortableCard>
+                  );
+                })}
+
+                {/* Totale mobile */}
+                <Paper sx={{ p: 2 }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography fontWeight={700}>Totale</Typography>
+                    <Typography fontWeight={700} fontFamily="monospace" fontSize="1.1rem">
+                      {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Stack>
+            ) : (
+              /* ─── DESKTOP: Table layout ─── */
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      {reordering && <TableCell sx={{ width: 40 }} />}
+                      <TableCell><strong>Rapporto / Istituto</strong></TableCell>
+                      <TableCell><strong>Conto</strong></TableCell>
+                      <TableCell><strong>Tipo</strong></TableCell>
+                      <TableCell><strong>Intestatari</strong></TableCell>
+                      <TableCell align="right"><strong>Saldo</strong></TableCell>
+                      {!reordering && <TableCell />}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {saldi.map((s) => {
+                      const isEditing = editingId === s.id;
+
+                      return (
+                        <SortableTableRow key={s.contoId} saldo={s} reordering={reordering}>
+                          <TableCell>
+                            <Typography variant="body2">{s.conto.rapporto.nome}</Typography>
+                            <Typography variant="caption" color="text.secondary">{s.conto.rapporto.istituto}</Typography>
+                          </TableCell>
+                          <TableCell>{s.conto.nome}</TableCell>
+                          <TableCell>
+                            <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                              {s.conto.intestatari.map((i) => (
+                                <Chip
+                                  key={i.intestatario.id}
+                                  label={`${i.intestatario.nome} ${i.intestatario.cognome}`}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
+                              ))}
+                            </Box>
+                          </TableCell>
+                          <TableCell align="right" sx={{ minWidth: 200 }}>
+                            {isEditing ? (
+                              renderEditField(s)
+                            ) : (
+                              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 0.5 }}>
+                                {s.formula && (
+                                  <Tooltip title={`Formula: ${s.formula}`} arrow>
+                                    <FunctionsIcon fontSize="small" color="primary" sx={{ opacity: 0.7, cursor: "default" }} />
+                                  </Tooltip>
+                                )}
+                                <Typography
+                                  component="span"
+                                  sx={{ fontWeight: 600, fontFamily: "monospace", fontSize: "0.95rem", cursor: reordering ? "default" : "pointer" }}
+                                  onClick={() => startEdit(s)}
+                                >
+                                  {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                                </Typography>
+                                {!reordering && (
+                                  <Tooltip title="Modifica saldo">
+                                    <IconButton size="small" onClick={() => startEdit(s)} sx={{ opacity: 0, "&:hover": { opacity: 1 }, ".MuiTableRow-root:hover &": { opacity: 0.5 } }}>
+                                      <EditIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </Box>
+                            )}
+                          </TableCell>
+                          {!reordering && (
+                            <TableCell align="right" sx={{ px: 1 }}>
+                              <Tooltip title="Elimina saldo">
+                                <IconButton size="small" color="error" onClick={() => setDeleteId(s.id)}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          )}
+                        </SortableTableRow>
+                      );
+                    })}
+                    <TableRow>
+                      {reordering && <TableCell />}
+                      <TableCell colSpan={4} align="right">
+                        <Typography fontWeight={700}>Totale</Typography>
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontFamily: "monospace", fontSize: "1rem" }}>
+                        {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                      </TableCell>
+                      {!reordering && <TableCell />}
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </SortableContext>
+
+          <DragOverlay>
+            {activeSaldo && (
+              <Paper elevation={8} sx={{ p: 2, opacity: 0.9 }}>
+                <Typography fontWeight={600}>{activeSaldo.conto.nome}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {activeSaldo.conto.rapporto.nome} · {activeSaldo.conto.rapporto.istituto}
+                </Typography>
+              </Paper>
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
 
       <SaldoForm

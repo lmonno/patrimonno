@@ -39,7 +39,7 @@ async function main() {
   });
 
   // Tipi Entrata
-  const tipiEntrata = ["Stipendio", "Cedole/Dividendi", "Contributi", "Affitto"];
+  const tipiEntrata = ["Stipendio", "Cedole/Dividendi", "Contributi", "Affitto", "Altro"];
   for (const nome of tipiEntrata) {
     await prisma.tipoEntrata.upsert({
       where: { nome },

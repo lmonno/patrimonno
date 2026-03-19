@@ -29,6 +29,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import UploadIcon from "@mui/icons-material/Upload";
+import DownloadIcon from "@mui/icons-material/Download";
 import EditIcon from "@mui/icons-material/Edit";
 import EntrataForm from "./EntrataForm";
 import ImportEntrateDialog from "./ImportEntrateDialog";
@@ -77,6 +78,7 @@ export default function EntrateTable() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
 
   // Inline editing
@@ -211,6 +213,25 @@ export default function EntrateTable() {
     />
   );
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/entrate/export");
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "export_entrate.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setSnackbar({ open: true, message: "Errore nel download", severity: "error" });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -227,6 +248,15 @@ export default function EntrateTable() {
         </Typography>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
           <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownload}
+            disabled={downloading}
+            size={isMobile ? "small" : "medium"}
+          >
+            {isMobile ? "Scarica" : "Scarica Excel"}
+          </Button>
           <Button
             variant="outlined"
             startIcon={<UploadIcon />}

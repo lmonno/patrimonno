@@ -8,6 +8,15 @@ export const createContoSchema = z.object({
   intestatariIds: z.array(z.string().min(1)).min(1, "Almeno un intestatario è richiesto"),
 });
 
+export const updateOrdineSchema = z.object({
+  ordine: z.array(
+    z.object({
+      id: z.string().min(1),
+      ordine: z.number().int().min(0),
+    })
+  ).min(1),
+});
+
 export const updateContoSchema = z.object({
   nome: z.string().min(1).optional(),
   tipoContoId: z.string().min(1).optional(),
