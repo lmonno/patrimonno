@@ -27,11 +27,11 @@ const DRAWER_WIDTH = 260;
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: <DashboardIcon /> },
-  { label: "Intestatari", href: "/intestatari", icon: <PeopleIcon /> },
-  { label: "Rapporti", href: "/conti", icon: <AccountBalanceIcon /> },
   { label: "Saldi", href: "/saldi", icon: <TrendingUpIcon /> },
   { label: "Entrate", href: "/entrate", icon: <PaymentsIcon /> },
   { label: "Flussi Straordinari", href: "/flussi-straordinari", icon: <SwapHorizIcon /> },
+  { label: "Rapporti", href: "/conti", icon: <AccountBalanceIcon /> },
+  { label: "Intestatari", href: "/intestatari", icon: <PeopleIcon /> },
   { label: "Tipi Conto", href: "/tipi-conto", icon: <CategoryIcon /> },
 ];
 
