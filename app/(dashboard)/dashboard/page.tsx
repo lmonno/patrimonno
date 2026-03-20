@@ -89,8 +89,11 @@ export default function DashboardPage() {
   const [entrateIntestatari, setEntrateIntestatari] = useState<IntNome[]>([]);
   const [tipiEntrata, setTipiEntrata] = useState<TipoEntrata[]>([]);
   const [selectedTipoIds, setSelectedTipoIds] = useState<string[]>([]);
+  const [speseStorico, setSpeseStorico] = useState<EntrataStorico[]>([]);
+  const [speseIntestatari, setSpeseIntestatari] = useState<IntNome[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingEntrate, setLoadingEntrate] = useState(true);
+  const [loadingSpese, setLoadingSpese] = useState(true);
 
   // Carica intestatari e tipi entrata al mount
   useEffect(() => {
@@ -100,7 +103,11 @@ export default function DashboardPage() {
       .catch(() => {});
     fetch("/api/tipi-entrata")
       .then((r) => r.json())
-      .then(setTipiEntrata)
+      .then((tipi: TipoEntrata[]) => {
+        setTipiEntrata(tipi);
+        const stipendio = tipi.find((t) => t.nome === "Stipendio");
+        if (stipendio) setSelectedTipoIds([stipendio.id]);
+      })
       .catch(() => {});
   }, []);
 
@@ -141,10 +148,30 @@ export default function DashboardPage() {
     }
   }, [selectedIds, selectedTipoIds, anno, mese]);
 
+  // Carica storico spese
+  const fetchSpeseStorico = useCallback(async () => {
+    setLoadingSpese(true);
+    try {
+      const queryParams = new URLSearchParams({ anno: String(anno), mese: String(mese) });
+      if (selectedIds.length > 0) queryParams.set("intestatariIds", selectedIds.join(","));
+      const res = await fetch(`/api/spese/storico?${queryParams}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSpeseStorico(data.storico);
+        setSpeseIntestatari(data.intestatariNomi ?? []);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingSpese(false);
+    }
+  }, [selectedIds, anno, mese]);
+
   useEffect(() => {
     fetchPatrimonio();
     fetchEntrateStorico();
-  }, [fetchPatrimonio, fetchEntrateStorico]);
+    fetchSpeseStorico();
+  }, [fetchPatrimonio, fetchEntrateStorico, fetchSpeseStorico]);
 
   const toggleIntestatario = (id: string) => {
     setSelectedIds((prev) =>
@@ -189,6 +216,30 @@ export default function DashboardPage() {
       return punto;
     }),
     [entrateStorico, entrateIntestatari]
+  );
+
+  // Mappa colori intestatari spese
+  const coloriMapSpese = useMemo(() => {
+    const map = new Map<string, string>();
+    speseIntestatari.forEach((int, i) => {
+      map.set(int.id, COLORI_INTESTATARI[i % COLORI_INTESTATARI.length]);
+    });
+    return map;
+  }, [speseIntestatari]);
+
+  // Dati grafico spese
+  const chartDataSpese = useMemo(() =>
+    speseStorico.map((e) => {
+      const punto: Record<string, unknown> = {
+        label: `${String(e.mese).padStart(2, "0")}/${String(e.anno).slice(-2)}`,
+        mediana: e.mediana,
+      };
+      for (const int of speseIntestatari) {
+        punto[int.id] = e.perIntestatario?.[int.id] ?? 0;
+      }
+      return punto;
+    }),
+    [speseStorico, speseIntestatari]
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -398,6 +449,69 @@ export default function DashboardPage() {
                       name={int.nome}
                       stackId="entrate"
                       fill={coloriMap.get(int.id) ?? "#2e7d32"}
+                      opacity={0.7}
+                    />
+                  ))}
+                  <Line
+                    dataKey="mediana"
+                    name="Mediana 12 mesi"
+                    stroke="#ff9800"
+                    strokeWidth={2.5}
+                    dot={false}
+                    type="monotone"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+      </Box>
+
+      {/* Grafico Spese (non straordinarie) */}
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+          Spese (non straordinarie)
+        </Typography>
+
+        {loadingSpese ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : chartDataSpese.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+            Nessun dato sulle spese disponibile
+          </Typography>
+        ) : (
+          <Card>
+            <CardContent sx={{ px: isMobile ? 1 : 3 }}>
+              <ResponsiveContainer width="100%" height={isMobile ? 280 : 350}>
+                <ComposedChart data={chartDataSpese} margin={{ top: 10, right: isMobile ? 5 : 20, left: isMobile ? -15 : 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                    interval={isMobile ? 5 : 2}
+                    angle={isMobile ? -45 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                  />
+                  <YAxis
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                    tickFormatter={(v: number) => `${(v / 1000).toFixed(1).replace(".", ",")}k`}
+                  />
+                  <Tooltip
+                    formatter={formatTooltipValue}
+                    labelStyle={{ fontWeight: 600 }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: isMobile ? 11 : 13 }}
+                  />
+                  {speseIntestatari.map((int) => (
+                    <Bar
+                      key={int.id}
+                      dataKey={int.id}
+                      name={int.nome}
+                      stackId="spese"
+                      fill={coloriMapSpese.get(int.id) ?? "#c62828"}
                       opacity={0.7}
                     />
                   ))}
