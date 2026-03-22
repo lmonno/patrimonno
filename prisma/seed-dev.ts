@@ -54,17 +54,22 @@ async function main() {
 
   // ── 1. Utente di test ──────────────────────────────────────────────────
   const hashedPwd = await bcrypt.hash("test1234!", 12);
-  const userTest = await prisma.user.upsert({
-    where: { email: "test@family.local" },
-    update: {},
-    create: {
-      nome: "Test",
-      email: "test@family.local",
-      hashedPassword: hashedPwd,
-      ruolo: Ruolo.UTENTE,
-    },
-  });
-  console.log(`✔ Utente test: ${userTest.email}`);
+  try {
+    const userTest = await prisma.user.upsert({
+      where: { email: "test@family.local" },
+      update: {},
+      create: {
+        nome: "Test",
+        email: "test@family.local",
+        hashedPassword: hashedPwd,
+        ruolo: Ruolo.UTENTE,
+      },
+    });
+    console.log(`✔ Utente test: ${userTest.email}`);
+  } catch (err) {
+    console.error("⚠ Errore creazione utente test:", err);
+    console.log("  → Crea l'utente manualmente da Admin > Utenti");
+  }
 
   // ── 2. Intestatari ────────────────────────────────────────────────────
   const intestatari = [
