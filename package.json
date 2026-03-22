@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma migrate deploy && npx tsx prisma/seed-dev.ts && next build",
     "seed:dev": "npx tsx prisma/seed-dev.ts",
-    "start": "prisma migrate deploy && npx tsx prisma/seed-dev.ts && next start",
+    "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
