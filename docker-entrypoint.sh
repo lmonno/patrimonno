@@ -19,8 +19,11 @@ done
 echo "Esecuzione migrazioni Prisma..."
 npx prisma migrate deploy
 
-echo "Esecuzione seed..."
-npx tsx prisma/seed.ts 2>&1 || echo "Seed fallito o già eseguito"
+echo "Esecuzione seed base..."
+npx tsx prisma/seed.ts 2>&1 || echo "Seed base fallito o già eseguito"
+
+echo "Esecuzione seed di sviluppo..."
+npx tsx prisma/seed-dev.ts 2>&1 || echo "Seed dev fallito"
 
 echo "Avvio applicazione..."
 exec "$@"
