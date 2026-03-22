@@ -43,6 +43,8 @@ interface FlussoWithRelations {
   descrizione: string;
   categoriaId: string;
   intestatarioId: string | null;
+  ammortizzare: boolean;
+  mesiAmmortamento: number | null;
   categoria: { id: string; nome: string };
   intestatario: { id: string; nome: string; cognome: string } | null;
 }
@@ -69,6 +71,8 @@ export default function FlussiTable() {
     categoriaId: string;
     categoriaNome: string;
     intestatarioId: string | null;
+    ammortizzare: boolean;
+    mesiAmmortamento: number | null;
   } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -132,6 +136,8 @@ export default function FlussiTable() {
       categoriaId: f.categoriaId,
       categoriaNome: f.categoria.nome,
       intestatarioId: f.intestatarioId,
+      ammortizzare: f.ammortizzare ?? false,
+      mesiAmmortamento: f.mesiAmmortamento ?? null,
     });
     setFormOpen(true);
   };
@@ -281,6 +287,14 @@ export default function FlussiTable() {
                           variant="outlined"
                           color={f.intestatario ? "default" : "primary"}
                         />
+                        {f.ammortizzare && (
+                          <Chip
+                            label={`Ammort. ${f.mesiAmmortamento} mesi`}
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                          />
+                        )}
                       </Box>
                       <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
                         {formatData(f.data)}
@@ -334,6 +348,7 @@ export default function FlussiTable() {
                 <TableCell><strong>Categoria</strong></TableCell>
                 <TableCell><strong>Pagante</strong></TableCell>
                 <TableCell align="right"><strong>Importo</strong></TableCell>
+                <TableCell><strong>Ammortamento</strong></TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
@@ -366,6 +381,18 @@ export default function FlussiTable() {
                         {formatImporto(f.importo)}
                       </Typography>
                     </TableCell>
+                    <TableCell>
+                      {f.ammortizzare ? (
+                        <Chip
+                          label={`${f.mesiAmmortamento} mesi`}
+                          size="small"
+                          variant="outlined"
+                          color="warning"
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">—</Typography>
+                      )}
+                    </TableCell>
                     <TableCell align="right" sx={{ px: 1, whiteSpace: "nowrap" }}>
                       <Tooltip title="Modifica">
                         <IconButton size="small" onClick={() => handleEdit(f)}>
@@ -395,6 +422,7 @@ export default function FlussiTable() {
                     {formatImporto(totale)}
                   </Typography>
                 </TableCell>
+                <TableCell />
                 <TableCell />
               </TableRow>
             </TableBody>

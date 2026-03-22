@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const ammortizzare = parsed.data.ammortizzare ?? false;
     const flusso = await prisma.flussoStraordinario.create({
       data: {
         data: new Date(parsed.data.data),
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest) {
         descrizione: parsed.data.descrizione,
         categoriaId: parsed.data.categoriaId,
         intestatarioId: parsed.data.intestatarioId,
+        ammortizzare,
+        mesiAmmortamento: ammortizzare ? (parsed.data.mesiAmmortamento ?? 12) : null,
       },
       include: {
         categoria: { select: { id: true, nome: true } },

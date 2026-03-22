@@ -219,6 +219,8 @@ model FlussoStraordinario {
   descrizione     String   @db.Text
   categoriaId     String
   intestatarioId  String?
+  ammortizzare    Boolean  @default(false)
+  mesiAmmortamento Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

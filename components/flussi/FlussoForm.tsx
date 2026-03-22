@@ -16,6 +16,8 @@ import {
   Autocomplete,
   MenuItem,
   CircularProgress,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -37,6 +39,8 @@ interface FlussoFormData {
   categoriaId: string;
   categoriaNome: string;
   intestatarioId: string | null;
+  ammortizzare: boolean;
+  mesiAmmortamento: number;
 }
 
 interface FlussoFormProps {
@@ -51,6 +55,8 @@ interface FlussoFormProps {
     categoriaId: string;
     categoriaNome: string;
     intestatarioId: string | null;
+    ammortizzare: boolean;
+    mesiAmmortamento: number | null;
   } | null;
 }
 
@@ -70,6 +76,8 @@ export default function FlussoForm({ open, onClose, onSave, editData }: FlussoFo
     categoriaId: "",
     categoriaNome: "",
     intestatarioId: null,
+    ammortizzare: false,
+    mesiAmmortamento: 12,
   };
 
   const [form, setForm] = useState<FlussoFormData>(emptyForm);
@@ -94,6 +102,8 @@ export default function FlussoForm({ open, onClose, onSave, editData }: FlussoFo
         categoriaId: editData.categoriaId,
         categoriaNome: editData.categoriaNome,
         intestatarioId: editData.intestatarioId,
+        ammortizzare: editData.ammortizzare ?? false,
+        mesiAmmortamento: editData.mesiAmmortamento ?? 12,
       });
     } else if (open) {
       setForm(emptyForm);
@@ -134,6 +144,8 @@ export default function FlussoForm({ open, onClose, onSave, editData }: FlussoFo
         descrizione: form.descrizione,
         categoriaId,
         intestatarioId: form.intestatarioId,
+        ammortizzare: form.ammortizzare,
+        mesiAmmortamento: form.ammortizzare ? form.mesiAmmortamento : null,
       };
 
       const url = editData
@@ -250,6 +262,41 @@ export default function FlussoForm({ open, onClose, onSave, editData }: FlussoFo
               </MenuItem>
             ))}
           </TextField>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.ammortizzare}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    ammortizzare: e.target.checked,
+                    mesiAmmortamento: e.target.checked ? f.mesiAmmortamento || 12 : 12,
+                  }))
+                }
+              />
+            }
+            label="Da ammortizzare"
+          />
+
+          {form.ammortizzare && (
+            <TextField
+              label="Mesi di ammortamento"
+              type="number"
+              value={form.mesiAmmortamento}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  mesiAmmortamento: Math.max(1, parseInt(e.target.value) || 1),
+                }))
+              }
+              fullWidth
+              slotProps={{
+                input: { inputProps: { min: 1 } },
+              }}
+              helperText="Numero di mesi su cui distribuire l'importo"
+            />
+          )}
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>

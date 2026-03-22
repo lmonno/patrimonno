@@ -29,6 +29,14 @@ export async function PUT(
     if (parsed.data.descrizione !== undefined) data.descrizione = parsed.data.descrizione;
     if (parsed.data.categoriaId !== undefined) data.categoriaId = parsed.data.categoriaId;
     if (parsed.data.intestatarioId !== undefined) data.intestatarioId = parsed.data.intestatarioId;
+    if (parsed.data.ammortizzare !== undefined) {
+      data.ammortizzare = parsed.data.ammortizzare;
+      data.mesiAmmortamento = parsed.data.ammortizzare
+        ? (parsed.data.mesiAmmortamento ?? 12)
+        : null;
+    } else if (parsed.data.mesiAmmortamento !== undefined) {
+      data.mesiAmmortamento = parsed.data.mesiAmmortamento;
+    }
 
     const flusso = await prisma.flussoStraordinario.update({
       where: { id },
