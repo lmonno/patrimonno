@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const rows = await prisma.$queryRaw<RisparmioSpeseRow[]>`
       SELECT anno, mese, "intestatarioId", intestatario_nome, risparmio, spese
       FROM risparmio_spese
-      WHERE (anno * 12 + mese) >= ${startOrd} AND (anno * 12 + mese) <= ${endOrd}
+      WHERE (anno * 12 + mese) >= ${startOrd} AND (anno * 12 + mese) <= ${endOrd} AND "userId" = ${session.user.id}
       ORDER BY anno, mese, "intestatarioId"
     `;
 

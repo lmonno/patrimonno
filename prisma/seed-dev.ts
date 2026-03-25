@@ -71,7 +71,10 @@ async function main() {
     console.log("  → Crea l'utente manualmente da Admin > Utenti");
   }
 
-  // ── 2. Intestatari ────────────────────────────────────────────────────
+  // ── 2. Recupera utente test (creato sopra) ────────────────────────────
+  const user = await prisma.user.findUniqueOrThrow({ where: { email: "test@family.local" } });
+
+  // ── 3. Intestatari ────────────────────────────────────────────────────
   const intestatari = [
     { nome: "Marco", cognome: "Rossi" },
     { nome: "Laura", cognome: "Rossi" },
@@ -81,11 +84,11 @@ async function main() {
   for (const int of intestatari) {
     // Cerca se esiste già (per rerunnabilità)
     let existing = await prisma.intestatario.findFirst({
-      where: { nome: int.nome, cognome: int.cognome, deletedAt: null },
+      where: { nome: int.nome, cognome: int.cognome, deletedAt: null, userId: user.id },
     });
     if (!existing) {
       existing = await prisma.intestatario.create({
-        data: { nome: int.nome, cognome: int.cognome },
+        data: { nome: int.nome, cognome: int.cognome, userId: user.id },
       });
     }
     intestatariDb.push({ id: existing.id, nome: existing.nome, cognome: existing.cognome });
@@ -93,7 +96,7 @@ async function main() {
   const [marco, laura] = intestatariDb;
   console.log(`✔ Intestatari: ${intestatariDb.map((i) => `${i.nome} ${i.cognome}`).join(", ")}`);
 
-  // ── 3. Lookup tipi ────────────────────────────────────────────────────
+  // ── 4. Lookup tipi ────────────────────────────────────────────────────
   const tipoCC = await prisma.tipoConto.findUniqueOrThrow({ where: { nome: "Conto Corrente" } });
   const tipoTitoli = await prisma.tipoConto.findUniqueOrThrow({ where: { nome: "Conto Titoli" } });
   const tipoDeposito = await prisma.tipoConto.findUniqueOrThrow({ where: { nome: "Conto Deposito" } });
@@ -111,7 +114,7 @@ async function main() {
   const catViaggi = await prisma.categoriaFlusso.findUniqueOrThrow({ where: { nome: "Viaggi" } });
   const catRegali = await prisma.categoriaFlusso.findUniqueOrThrow({ where: { nome: "Regali" } });
 
-  // ── 4. Rapporti e Conti ───────────────────────────────────────────────
+  // ── 5. Rapporti e Conti ───────────────────────────────────────────────
 
   // Helper: crea rapporto + conti se non esistono
   async function creaRapportoConConti(
@@ -125,10 +128,10 @@ async function main() {
     }[]
   ) {
     let rap = await prisma.rapporto.findFirst({
-      where: { nome: rapporto.nome, deletedAt: null },
+      where: { nome: rapporto.nome, deletedAt: null, userId: user.id },
     });
     if (!rap) {
-      rap = await prisma.rapporto.create({ data: rapporto });
+      rap = await prisma.rapporto.create({ data: { ...rapporto, userId: user.id } });
     }
 
     const contiDb: { id: string; nome: string; intestatariIds: string[] }[] = [];
@@ -196,7 +199,7 @@ async function main() {
   );
   console.log(`✔ Rapporto Amundi: ${contiAmundi.length} conto`);
 
-  // ── 5. Saldi (24 mesi) ───────────────────────────────────────────────
+  // ── 6. Saldi (24 mesi) ───────────────────────────────────────────────
   const mesi = ultimi24Mesi();
 
   // Definisci andamento per ogni conto
@@ -238,7 +241,7 @@ async function main() {
   }
   console.log(`✔ Saldi creati/aggiornati: ${saldiCreati}`);
 
-  // ── 6. Entrate (24 mesi) ──────────────────────────────────────────────
+  // ── 7. Entrate (24 mesi) ──────────────────────────────────────────────
   const entrateConfig: {
     intestatarioId: string;
     tipoEntrataId: string;
@@ -284,43 +287,44 @@ async function main() {
   }
   console.log(`✔ Entrate create/aggiornate: ${entrateCreate}`);
 
-  // ── 7. Flussi Straordinari ────────────────────────────────────────────
+  // ── 8. Flussi Straordinari ────────────────────────────────────────────
   const flussiDati: {
     data: Date;
     importo: number;
     descrizione: string;
     categoriaId: string;
     intestatarioId: string | null;
+    userId: string;
   }[] = [
     // Ristrutturazione bagno (negativo, spesa comune)
-    { data: new Date(2024, 4, 15), importo: -8500, descrizione: "Ristrutturazione bagno", categoriaId: catCasa.id, intestatarioId: null },
+    { data: new Date(2024, 4, 15), importo: -8500, descrizione: "Ristrutturazione bagno", categoriaId: catCasa.id, intestatarioId: null, userId: user.id },
     // Acquisto auto Laura
-    { data: new Date(2024, 7, 3), importo: -18000, descrizione: "Acquisto Fiat 500e", categoriaId: catAuto.id, intestatarioId: laura.id },
+    { data: new Date(2024, 7, 3), importo: -18000, descrizione: "Acquisto Fiat 500e", categoriaId: catAuto.id, intestatarioId: laura.id, userId: user.id },
     // Bonus aziendale Marco
-    { data: new Date(2024, 11, 20), importo: 3200, descrizione: "Bonus annuale azienda", categoriaId: catRegali.id, intestatarioId: marco.id },
+    { data: new Date(2024, 11, 20), importo: 3200, descrizione: "Bonus annuale azienda", categoriaId: catRegali.id, intestatarioId: marco.id, userId: user.id },
     // Viaggio famiglia estate 2025
-    { data: new Date(2025, 6, 10), importo: -3800, descrizione: "Vacanza Grecia 2025", categoriaId: catViaggi.id, intestatarioId: null },
+    { data: new Date(2025, 6, 10), importo: -3800, descrizione: "Vacanza Grecia 2025", categoriaId: catViaggi.id, intestatarioId: null, userId: user.id },
     // Intervento dentistico Marco
-    { data: new Date(2025, 2, 8), importo: -1500, descrizione: "Impianto dentale", categoriaId: catSalute.id, intestatarioId: marco.id },
+    { data: new Date(2025, 2, 8), importo: -1500, descrizione: "Impianto dentale", categoriaId: catSalute.id, intestatarioId: marco.id, userId: user.id },
     // Eredità Laura
-    { data: new Date(2025, 4, 1), importo: 12000, descrizione: "Eredità zia Maria", categoriaId: catRegali.id, intestatarioId: laura.id },
+    { data: new Date(2025, 4, 1), importo: 12000, descrizione: "Eredità zia Maria", categoriaId: catRegali.id, intestatarioId: laura.id, userId: user.id },
     // Manutenzione auto Marco
-    { data: new Date(2025, 8, 22), importo: -950, descrizione: "Tagliando + gomme invernali", categoriaId: catAuto.id, intestatarioId: marco.id },
+    { data: new Date(2025, 8, 22), importo: -950, descrizione: "Tagliando + gomme invernali", categoriaId: catAuto.id, intestatarioId: marco.id, userId: user.id },
     // Caldaia nuova (comune)
-    { data: new Date(2025, 10, 5), importo: -3200, descrizione: "Sostituzione caldaia", categoriaId: catCasa.id, intestatarioId: null },
+    { data: new Date(2025, 10, 5), importo: -3200, descrizione: "Sostituzione caldaia", categoriaId: catCasa.id, intestatarioId: null, userId: user.id },
     // Viaggio Natale 2025
-    { data: new Date(2025, 11, 28), importo: -2100, descrizione: "Settimana bianca Dolomiti", categoriaId: catViaggi.id, intestatarioId: null },
+    { data: new Date(2025, 11, 28), importo: -2100, descrizione: "Settimana bianca Dolomiti", categoriaId: catViaggi.id, intestatarioId: null, userId: user.id },
     // Visita specialistica Laura
-    { data: new Date(2026, 0, 15), importo: -320, descrizione: "Visita ortopedica + risonanza", categoriaId: catSalute.id, intestatarioId: laura.id },
+    { data: new Date(2026, 0, 15), importo: -320, descrizione: "Visita ortopedica + risonanza", categoriaId: catSalute.id, intestatarioId: laura.id, userId: user.id },
     // Riparazione tetto (comune)
-    { data: new Date(2026, 1, 10), importo: -4500, descrizione: "Riparazione infiltrazione tetto", categoriaId: catCasa.id, intestatarioId: null },
+    { data: new Date(2026, 1, 10), importo: -4500, descrizione: "Riparazione infiltrazione tetto", categoriaId: catCasa.id, intestatarioId: null, userId: user.id },
   ];
 
   let flussiCreati = 0;
   for (const f of flussiDati) {
-    // Evita duplicati: cerca per data + descrizione
+    // Evita duplicati: cerca per data + descrizione + userId
     const existing = await prisma.flussoStraordinario.findFirst({
-      where: { data: f.data, descrizione: f.descrizione },
+      where: { data: f.data, descrizione: f.descrizione, userId: user.id },
     });
     if (!existing) {
       await prisma.flussoStraordinario.create({ data: f });

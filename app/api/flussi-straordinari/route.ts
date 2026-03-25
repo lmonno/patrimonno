@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const anno = searchParams.get("anno");
     const intestatarioId = searchParams.get("intestatarioId");
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { userId: session.user.id };
     if (anno) {
       const y = parseInt(anno);
       where.data = {
@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         intestatarioId: parsed.data.intestatarioId,
         ammortizzare,
         mesiAmmortamento: ammortizzare ? (parsed.data.mesiAmmortamento ?? 12) : null,
+        userId: session.user.id,
       },
       include: {
         categoria: { select: { id: true, nome: true } },

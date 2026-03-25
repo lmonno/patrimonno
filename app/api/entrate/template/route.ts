@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     const [intestatari, tipiEntrata] = await Promise.all([
       prisma.intestatario.findMany({
-        where: { deletedAt: null },
+        where: { deletedAt: null, userId: session.user.id },
         orderBy: [{ cognome: "asc" }, { nome: "asc" }],
       }),
       prisma.tipoEntrata.findMany({

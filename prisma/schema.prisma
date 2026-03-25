@@ -63,6 +63,9 @@ model User {
 
   accounts Account[]
   sessions Session[]
+  intestatari          Intestatario[]
+  rapporti             Rapporto[]
+  flussiStraordinari   FlussoStraordinario[]
 
   @@map("users")
 }
@@ -85,6 +88,8 @@ model Intestatario {
   conti               ContoIntestatario[]
   entrate             Entrata[]
   flussiStraordinari  FlussoStraordinario[]
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
 
   @@map("intestatari")
 }
@@ -113,6 +118,8 @@ model Rapporto {
   deletedAt  DateTime?
 
   conti Conto[]
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
 
   @@map("rapporti")
 }
@@ -226,6 +233,8 @@ model FlussoStraordinario {
 
   categoria    CategoriaFlusso @relation(fields: [categoriaId], references: [id])
   intestatario Intestatario?   @relation(fields: [intestatarioId], references: [id])
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
 
   @@map("flussi_straordinari")
 }

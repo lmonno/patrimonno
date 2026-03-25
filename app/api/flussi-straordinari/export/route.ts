@@ -11,6 +11,7 @@ export async function GET() {
     }
 
     const flussi = await prisma.flussoStraordinario.findMany({
+      where: { userId: session.user.id },
       include: {
         categoria: { select: { nome: true } },
         intestatario: { select: { nome: true, cognome: true } },

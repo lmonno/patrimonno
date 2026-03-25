@@ -15,7 +15,7 @@ export async function GET(
 
     const { id } = await params;
     const intestatario = await prisma.intestatario.findUnique({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, userId: session.user.id },
       select: {
         id: true,
         nome: true,
@@ -56,7 +56,7 @@ export async function PUT(
     }
 
     const intestatario = await prisma.intestatario.update({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, userId: session.user.id },
       data: parsed.data,
       select: {
         id: true,
@@ -84,7 +84,7 @@ export async function DELETE(
 
     const { id } = await params;
     await prisma.intestatario.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data: { deletedAt: new Date() },
     });
 

@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const rapporti = await prisma.rapporto.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, userId: session.user.id },
       include: {
         conti: {
           where: { deletedAt: null },
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rapporto = await prisma.rapporto.create({
-      data: parsed.data,
+      data: { ...parsed.data, userId: session.user.id },
       include: {
         conti: true,
       },

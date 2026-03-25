@@ -13,6 +13,14 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    // Verifica che il saldo appartenga all'utente corrente
+    const saldoCheck = await prisma.saldo.findUnique({
+      where: { id, conto: { rapporto: { userId: session.user.id } } },
+      select: { id: true },
+    });
+    if (!saldoCheck) {
+      return NextResponse.json({ error: "Saldo non trovato" }, { status: 404 });
+    }
     await prisma.saldo.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

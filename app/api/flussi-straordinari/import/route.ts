@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     // Carica categorie e intestatari per il mapping per nome
     const [categorie, intestatari] = await Promise.all([
       prisma.categoriaFlusso.findMany({ where: { deletedAt: null } }),
-      prisma.intestatario.findMany({ where: { deletedAt: null } }),
+      prisma.intestatario.findMany({ where: { deletedAt: null, userId: session.user.id } }),
     ]);
 
     const categoriaByNome = new Map(categorie.map((c) => [c.nome.toLowerCase(), c.id]));
@@ -190,6 +190,7 @@ export async function POST(request: NextRequest) {
             intestatarioId: f.intestatarioId,
             ammortizzare: f.ammortizzare,
             mesiAmmortamento: f.mesiAmmortamento,
+            userId: session.user.id,
           },
         })
       )

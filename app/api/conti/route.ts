@@ -12,10 +12,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const archiviatoParam = searchParams.get("archiviato");
 
-    const where: Record<string, unknown> = { deletedAt: null };
+    const where: Record<string, unknown> = { deletedAt: null, rapporto: { userId: session.user.id } };
     if (archiviatoParam === "false") {
       where.archiviato = false;
-      where.rapporto = { archiviato: false };
+      where.rapporto = { archiviato: false, userId: session.user.id };
     }
 
     const conti = await prisma.conto.findMany({

@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const mese = searchParams.get("mese");
     const intestatarioId = searchParams.get("intestatarioId");
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { intestatario: { userId: session.user.id } };
     if (anno) where.anno = parseInt(anno);
     if (mese) where.mese = parseInt(mese);
     if (intestatarioId) where.intestatarioId = intestatarioId;
@@ -55,8 +55,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verifica che gli intestatarioId appartengano all'utente corrente
+    const uniqueIntIds = [...new Set(parsed.data.entrate.map((e) => e.intestatarioId))];
+    const intestatariUtente = await prisma.intestatario.findMany({
+      where: { id: { in: uniqueIntIds }, userId: session.user.id, deletedAt: null },
+      select: { id: true },
+    });
+    const intestatariConsentiti = new Set(intestatariUtente.map((i) => i.id));
+    const entrateConsentite = parsed.data.entrate.filter((e) => intestatariConsentiti.has(e.intestatarioId));
+
     const results = await prisma.$transaction(
-      parsed.data.entrate.map((entrata) =>
+      entrateConsentite.map((entrata) =>
         prisma.entrata.upsert({
           where: {
             intestatarioId_tipoEntrataId_anno_mese: {

@@ -13,6 +13,14 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    // Verifica che l'entrata appartenga all'utente corrente
+    const entrataCheck = await prisma.entrata.findUnique({
+      where: { id, intestatario: { userId: session.user.id } },
+      select: { id: true },
+    });
+    if (!entrataCheck) {
+      return NextResponse.json({ error: "Entrata non trovata" }, { status: 404 });
+    }
     await prisma.entrata.delete({ where: { id } });
 
     return NextResponse.json({ success: true });

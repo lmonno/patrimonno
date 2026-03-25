@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // Carica tutti i conti attivi con intestatari e saldi
     const tuttiConti = await prisma.conto.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, rapporto: { userId: session.user.id } },
       include: {
         intestatari: {
           include: {
@@ -161,6 +161,7 @@ export async function GET(request: NextRequest) {
     const dataFine = new Date(annoRif, meseRif, 0);
     const whereFlussi: Record<string, unknown> = {
       data: { gte: dataInizio, lte: dataFine },
+      userId: session.user.id,
     };
     if (selectedIds) {
       whereFlussi.OR = [
@@ -176,7 +177,7 @@ export async function GET(request: NextRequest) {
     if (selectedIds) {
       const numSelected = selectedIds.length;
       const tuttiIntestatari = await prisma.intestatario.findMany({
-        where: { deletedAt: null },
+        where: { deletedAt: null, userId: session.user.id },
         select: { id: true },
       });
       const numTotaleIntestatari = tuttiIntestatari.length;
@@ -200,7 +201,7 @@ export async function GET(request: NextRequest) {
     const risparmioUltimoMeseRows = await prisma.$queryRaw<RisparmioRow[]>`
       SELECT "intestatarioId", risparmio
       FROM risparmio_spese
-      WHERE anno = ${annoRif} AND mese = ${meseRif}
+      WHERE anno = ${annoRif} AND mese = ${meseRif} AND "userId" = ${session.user.id}
     `;
     const righeUltimoMese = selectedIds
       ? risparmioUltimoMeseRows.filter((r) => selectedIds.includes(r.intestatarioId))
@@ -215,7 +216,7 @@ export async function GET(request: NextRequest) {
     const risparmio12Rows = await prisma.$queryRaw<RisparmioRow[]>`
       SELECT "intestatarioId", risparmio
       FROM risparmio_spese
-      WHERE (anno * 12 + mese) >= ${startOrd} AND (anno * 12 + mese) <= ${endOrd}
+      WHERE (anno * 12 + mese) >= ${startOrd} AND (anno * 12 + mese) <= ${endOrd} AND "userId" = ${session.user.id}
     `;
     const righe12Mesi = selectedIds
       ? risparmio12Rows.filter((r) => selectedIds.includes(r.intestatarioId))

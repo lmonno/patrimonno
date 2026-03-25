@@ -39,7 +39,7 @@ export async function PUT(
     }
 
     const flusso = await prisma.flussoStraordinario.update({
-      where: { id },
+      where: { id, userId: session.user.id },
       data,
       include: {
         categoria: { select: { id: true, nome: true } },
@@ -65,7 +65,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await prisma.flussoStraordinario.delete({ where: { id } });
+    await prisma.flussoStraordinario.delete({ where: { id, userId: session.user.id } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Errore DELETE flussi-straordinari:", error);

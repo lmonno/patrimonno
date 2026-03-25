@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     // Verifica che i contoId esistano
     const uniqueContoIds = [...new Set(saldiToUpsert.map((s) => s.contoId))];
     const contiEsistenti = await prisma.conto.findMany({
-      where: { id: { in: uniqueContoIds } },
+      where: { id: { in: uniqueContoIds }, rapporto: { userId: session.user.id } },
       select: { id: true },
     });
     const contiSet = new Set(contiEsistenti.map((c: { id: string }) => c.id));
