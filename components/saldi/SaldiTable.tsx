@@ -35,8 +35,6 @@ import EditIcon from "@mui/icons-material/Edit";
 import FunctionsIcon from "@mui/icons-material/Functions";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
-import WaterDropIcon from "@mui/icons-material/WaterDrop";
-import LockIcon from "@mui/icons-material/Lock";
 import {
   DndContext,
   closestCenter,
@@ -526,13 +524,9 @@ export default function SaldiTable() {
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
                         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                           <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
-                          <Chip
-                            icon={s.conto.liquido ? <WaterDropIcon /> : <LockIcon />}
-                            label={s.conto.liquido ? "Liquido" : "Vincolato"}
-                            size="small"
-                            variant="outlined"
-                            color={s.conto.liquido ? "info" : "default"}
-                          />
+                          {!s.conto.liquido && (
+                            <Chip label="Non liquido" size="small" color="warning" variant="outlined" />
+                          )}
                           {s.conto.intestatari.map((i) => (
                             <Chip
                               key={i.intestatario.id}
@@ -597,13 +591,9 @@ export default function SaldiTable() {
                           <TableCell>
                             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                               <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
-                              <Chip
-                                icon={s.conto.liquido ? <WaterDropIcon /> : <LockIcon />}
-                                label={s.conto.liquido ? "Liquido" : "Vincolato"}
-                                size="small"
-                                variant="outlined"
-                                color={s.conto.liquido ? "info" : "default"}
-                              />
+                              {!s.conto.liquido && (
+                                <Chip label="Non liquido" size="small" color="warning" variant="outlined" />
+                              )}
                             </Box>
                           </TableCell>
                           <TableCell>
