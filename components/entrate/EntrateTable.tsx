@@ -34,7 +34,9 @@ import EditIcon from "@mui/icons-material/Edit";
 import EntrataForm from "./EntrataForm";
 import ImportEntrateDialog from "./ImportEntrateDialog";
 import EmptyState from "@/components/ui/EmptyState";
-import MonthYearPicker, { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
+import { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface EntrataWithRelations {
@@ -69,7 +71,6 @@ function getCurrentPeriod() {
 export default function EntrateTable() {
   const { anno: initAnno, mese: initMese } = getCurrentPeriod();
   const [anno, setAnno] = useState(initAnno);
-  const [mese, setMese] = useState(initMese);
   const [entrate, setEntrate] = useState<EntrataWithRelations[]>([]);
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
   const [filtroIntestatario, setFiltroIntestatario] = useState<string>("tutti");
@@ -100,7 +101,7 @@ export default function EntrateTable() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ anno: anno.toString(), mese: mese.toString() });
+      const params = new URLSearchParams({ anno: anno.toString() });
       if (filtroIntestatario !== "tutti") params.set("intestatarioId", filtroIntestatario);
       const res = await fetch(`/api/entrate?${params}`);
       if (res.ok) setEntrate(await res.json());
@@ -109,7 +110,7 @@ export default function EntrateTable() {
     } finally {
       setLoading(false);
     }
-  }, [anno, mese, filtroIntestatario]);
+  }, [anno, filtroIntestatario]);
 
   useEffect(() => {
     fetchIntestatari();
@@ -247,7 +248,15 @@ export default function EntrateTable() {
           Entrate
         </Typography>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
-          <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <IconButton size="small" onClick={() => setAnno((a) => a - 1)}>
+              <ChevronLeftIcon />
+            </IconButton>
+            <Typography fontWeight={600} sx={{ minWidth: 44, textAlign: "center" }}>{anno}</Typography>
+            <IconButton size="small" onClick={() => setAnno((a) => a + 1)}>
+              <ChevronRightIcon />
+            </IconButton>
+          </Box>
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
@@ -303,7 +312,7 @@ export default function EntrateTable() {
       )}
 
       {entrate.length === 0 ? (
-        <EmptyState message={`Nessuna entrata per ${MESI_LUNGHI[mese - 1]} ${anno}`} />
+        <EmptyState message={`Nessuna entrata per ${anno}`} />
       ) : isMobile ? (
         /* ─── MOBILE: Card layout ─── */
         <Stack spacing={1.5}>
@@ -317,7 +326,10 @@ export default function EntrateTable() {
                       <Typography variant="body1" fontWeight={600} noWrap>
                         {e.intestatario.nome} {e.intestatario.cognome}
                       </Typography>
-                      <Chip label={e.tipoEntrata.nome} size="small" variant="outlined" sx={{ mt: 0.5 }} />
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
+                        <Chip label={MESI_LUNGHI[e.mese - 1]} size="small" variant="outlined" color="default" />
+                        <Chip label={e.tipoEntrata.nome} size="small" variant="outlined" />
+                      </Box>
                     </Box>
                     <Box sx={{ textAlign: "right", flexShrink: 0 }}>
                       {isEditing ? renderEditField(e) : (
@@ -366,6 +378,7 @@ export default function EntrateTable() {
             <TableHead>
               <TableRow>
                 <TableCell><strong>Intestatario</strong></TableCell>
+                <TableCell><strong>Mese</strong></TableCell>
                 <TableCell><strong>Tipo</strong></TableCell>
                 <TableCell align="right"><strong>Valore</strong></TableCell>
                 <TableCell><strong>Note</strong></TableCell>
@@ -382,6 +395,7 @@ export default function EntrateTable() {
                         {e.intestatario.nome} {e.intestatario.cognome}
                       </Typography>
                     </TableCell>
+                    <TableCell>{MESI_LUNGHI[e.mese - 1]}</TableCell>
                     <TableCell>
                       <Chip label={e.tipoEntrata.nome} size="small" variant="outlined" />
                     </TableCell>
@@ -419,7 +433,7 @@ export default function EntrateTable() {
                 );
               })}
               <TableRow>
-                <TableCell colSpan={2} align="right">
+                <TableCell colSpan={3} align="right">
                   <Typography fontWeight={700}>Totale</Typography>
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, fontFamily: "monospace", fontSize: "1rem" }}>
@@ -440,7 +454,7 @@ export default function EntrateTable() {
           setSnackbar({ open: true, message: "Entrate salvate con successo", severity: "success" });
         }}
         defaultAnno={anno}
-        defaultMese={mese}
+        defaultMese={initMese}
       />
 
       <ConfirmDialog

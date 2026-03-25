@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         tipoEntrata: { select: { id: true, nome: true } },
       },
       orderBy: [
+        { mese: "asc" },
         { intestatario: { cognome: "asc" } },
         { tipoEntrata: { nome: "asc" } },
       ],
