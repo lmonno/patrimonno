@@ -8,28 +8,22 @@ import {
   DialogActions,
   Button,
   Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Box,
-  Chip,
   Typography,
   CircularProgress,
   InputAdornment,
   TextField,
   Tooltip,
-  Card,
-  CardContent,
-  Stack,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Chip,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
 import FunctionsIcon from "@mui/icons-material/Functions";
-import MonthYearPicker from "@/components/ui/MonthYearPicker";
+import MonthYearPicker, { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
 
 interface Intestatario {
   id: string;
@@ -42,12 +36,25 @@ interface TipoEntrata {
   nome: string;
 }
 
+interface EntrataData {
+  id: string;
+  intestatarioId: string;
+  tipoEntrataId: string;
+  anno: number;
+  mese: number;
+  valore: string;
+  note: string | null;
+  intestatario: { id: string; nome: string; cognome: string };
+  tipoEntrata: { id: string; nome: string };
+}
+
 interface EntrataFormProps {
   open: boolean;
   onClose: () => void;
   onSave: () => void;
   defaultAnno: number;
   defaultMese: number;
+  entrata?: EntrataData; // se presente, modalità modifica
 }
 
 function evaluateFormula(input: string, prev: number | null): number | null {
@@ -70,15 +77,18 @@ function getPreviousMonth(anno: number, mese: number) {
   return { anno, mese: mese - 1 };
 }
 
-export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaultMese }: EntrataFormProps) {
+export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaultMese, entrata }: EntrataFormProps) {
+  const isEdit = !!entrata;
+
   const [anno, setAnno] = useState(defaultAnno);
   const [mese, setMese] = useState(defaultMese);
+  const [intestatarioId, setIntestatarioId] = useState<string>("comune");
+  const [tipoEntrataId, setTipoEntrataId] = useState<string>("");
+  const [valore, setValore] = useState<string>("");
+  const [note, setNote] = useState<string>("");
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
-  // "comune" = entrate comuni divise tra tutti, oppure un singolo intestatarioId
-  const [selectedChip, setSelectedChip] = useState<string>("comune");
   const [tipiEntrata, setTipiEntrata] = useState<TipoEntrata[]>([]);
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [prevValues, setPrevValues] = useState<Record<string, string>>({});
+  const [prevValue, setPrevValue] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -86,64 +96,28 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  const loadData = useCallback(async (a: number, m: number, chip: string) => {
+  const loadPrevValue = useCallback(async (a: number, m: number, intId: string, tipoId: string) => {
+    if (!tipoId || intId === "comune") { setPrevValue(null); return; }
+    const prev = getPreviousMonth(a, m);
+    try {
+      const res = await fetch(`/api/entrate?anno=${prev.anno}&mese=${prev.mese}&intestatarioId=${intId}`);
+      if (!res.ok) return;
+      const data: { tipoEntrataId: string; valore: string }[] = await res.json();
+      const found = data.find((e) => e.tipoEntrataId === tipoId);
+      setPrevValue(found ? parseFloat(found.valore.toString()) : null);
+    } catch { /* ignore */ }
+  }, []);
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const prev = getPreviousMonth(a, m);
-
-      // Se chip è un intestatarioId, filtriamo per quello; altrimenti carichiamo tutto
-      const intFilter = chip !== "comune" ? `&intestatarioId=${chip}` : "";
-      const [intRes, tipiRes, currentRes, prevRes] = await Promise.all([
+      const [intRes, tipiRes] = await Promise.all([
         fetch("/api/intestatari"),
         fetch("/api/tipi-entrata"),
-        fetch(`/api/entrate?anno=${a}&mese=${m}${intFilter}`),
-        fetch(`/api/entrate?anno=${prev.anno}&mese=${prev.mese}${intFilter}`),
       ]);
-
-      const intData: Intestatario[] = await intRes.json();
-      const tipiData: TipoEntrata[] = await tipiRes.json();
-      const currentData: { intestatarioId: string; tipoEntrataId: string; valore: string }[] = await currentRes.json();
-      const prevData: { intestatarioId: string; tipoEntrataId: string; valore: string }[] = await prevRes.json();
-
-      setIntestatari(intData);
-      setTipiEntrata(tipiData);
-
-      // Mappa valori precedenti: somma per tipo entrata
-      const prevMap: Record<string, string> = {};
-      for (const tipo of tipiData) {
-        let sum = 0;
-        let found = false;
-        for (const e of prevData) {
-          if (e.tipoEntrataId === tipo.id) {
-            sum += parseFloat(e.valore.toString());
-            found = true;
-          }
-        }
-        if (found) prevMap[tipo.id] = sum.toString();
-      }
-      setPrevValues(prevMap);
-
-      // Pre-popola: somma valori correnti per tipo entrata
-      const newValues: Record<string, string> = {};
-      for (const tipo of tipiData) {
-        let sum = 0;
-        let found = false;
-        for (const e of currentData) {
-          if (e.tipoEntrataId === tipo.id) {
-            sum += parseFloat(e.valore.toString());
-            found = true;
-          }
-        }
-        if (found) {
-          newValues[tipo.id] = Math.round(sum * 100) / 100 === 0 ? "" : (Math.round(sum * 100) / 100).toString();
-        } else if (prevMap[tipo.id]) {
-          newValues[tipo.id] = prevMap[tipo.id];
-        } else {
-          newValues[tipo.id] = "";
-        }
-      }
-      setValues(newValues);
+      setIntestatari(await intRes.json());
+      setTipiEntrata(await tipiRes.json());
     } catch {
       setError("Errore nel caricamento dei dati");
     } finally {
@@ -152,109 +126,92 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
   }, []);
 
   useEffect(() => {
-    if (open) {
-      setAnno(defaultAnno);
-      setMese(defaultMese);
-      setSelectedChip("comune");
-      loadData(defaultAnno, defaultMese, "comune");
-    }
-  }, [open, defaultAnno, defaultMese, loadData]);
+    if (!open) return;
+    const a = entrata?.anno ?? defaultAnno;
+    const m = entrata?.mese ?? defaultMese;
+    const intId = entrata?.intestatarioId ?? "comune";
+    const tipoId = entrata?.tipoEntrataId ?? "";
+    setAnno(a);
+    setMese(m);
+    setIntestatarioId(intId);
+    setTipoEntrataId(tipoId);
+    setValore(entrata ? parseFloat(entrata.valore.toString()).toString() : "");
+    setNote(entrata?.note ?? "");
+    setPrevValue(null);
+    loadData();
+    if (tipoId && intId !== "comune") loadPrevValue(a, m, intId, tipoId);
+  }, [open, entrata, defaultAnno, defaultMese, loadData, loadPrevValue]);
+
+  const handleTipoChange = (id: string) => {
+    setTipoEntrataId(id);
+    if (id && intestatarioId !== "comune") loadPrevValue(anno, mese, intestatarioId, id);
+    else setPrevValue(null);
+  };
+
+  const handleIntestatarioChange = (id: string) => {
+    setIntestatarioId(id);
+    if (tipoEntrataId && id !== "comune") loadPrevValue(anno, mese, id, tipoEntrataId);
+    else setPrevValue(null);
+  };
 
   const handlePeriodChange = (newAnno: number, newMese: number) => {
     setAnno(newAnno);
     setMese(newMese);
-    loadData(newAnno, newMese, selectedChip);
+    if (tipoEntrataId && intestatarioId !== "comune") loadPrevValue(newAnno, newMese, intestatarioId, tipoEntrataId);
   };
 
-  const handleChipSelect = (chip: string) => {
-    setSelectedChip(chip);
-    loadData(anno, mese, chip);
-  };
-
-  const handleValueChange = (tipoId: string, value: string) => {
-    setValues((prev) => ({ ...prev, [tipoId]: value }));
-    setError("");
-  };
-
-  const resolveValue = (tipoId: string): string | null => {
-    const raw = values[tipoId]?.trim();
+  const resolveValue = (): string | null => {
+    const raw = valore.trim();
     if (!raw) return null;
     if (raw.startsWith("=")) {
-      const prev = prevValues[tipoId] ? parseFloat(prevValues[tipoId]) : null;
-      const result = evaluateFormula(raw, prev);
+      const result = evaluateFormula(raw, prevValue);
       return result !== null ? result.toString() : null;
     }
     const num = parseFloat(raw);
     return isFinite(num) ? num.toString() : null;
   };
 
-  const getResolvedPreview = (tipoId: string): string | null => {
-    const raw = values[tipoId]?.trim();
-    if (!raw || !raw.startsWith("=")) return null;
-    const prev = prevValues[tipoId] ? parseFloat(prevValues[tipoId]) : null;
-    const result = evaluateFormula(raw, prev);
-    return result !== null ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €` : "Formula non valida";
+  const getPreview = (): string | null => {
+    if (!valore.trim().startsWith("=")) return null;
+    const result = evaluateFormula(valore.trim(), prevValue);
+    return result !== null
+      ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €`
+      : "Formula non valida";
   };
 
   const handleSubmit = async () => {
+    if (!isEdit && !tipoEntrataId) { setError("Seleziona un tipo di entrata"); return; }
+    const resolved = resolveValue();
+    if (resolved === null) { setError("Inserisci un valore valido"); return; }
+
     setSaving(true);
     setError("");
 
-    const entrate: { intestatarioId: string; tipoEntrataId: string; anno: number; mese: number; valore: string }[] = [];
+    const entrateToSave: { intestatarioId: string; tipoEntrataId: string; anno: number; mese: number; valore: string; note?: string }[] = [];
+    const tipoId = isEdit ? entrata!.tipoEntrataId : tipoEntrataId;
+    const noteValue = note.trim() || undefined;
 
-    if (selectedChip === "comune") {
-      // Comune: dividi equamente tra tutti gli intestatari
-      const numIntestatari = intestatari.length;
-      for (const tipo of tipiEntrata) {
-        const resolved = resolveValue(tipo.id);
-        if (resolved !== null) {
-          const valorePerIntestatario = Math.round((parseFloat(resolved) / numIntestatari) * 100) / 100;
-          for (const int of intestatari) {
-            entrate.push({
-              intestatarioId: int.id,
-              tipoEntrataId: tipo.id,
-              anno,
-              mese,
-              valore: valorePerIntestatario.toString(),
-            });
-          }
-        }
+    if (!isEdit && intestatarioId === "comune") {
+      const valorePerInt = Math.round((parseFloat(resolved) / intestatari.length) * 100) / 100;
+      for (const int of intestatari) {
+        entrateToSave.push({ intestatarioId: int.id, tipoEntrataId: tipoId, anno, mese, valore: valorePerInt.toString(), note: noteValue });
       }
     } else {
-      // Singolo intestatario: salva direttamente
-      for (const tipo of tipiEntrata) {
-        const resolved = resolveValue(tipo.id);
-        if (resolved !== null) {
-          entrate.push({
-            intestatarioId: selectedChip,
-            tipoEntrataId: tipo.id,
-            anno,
-            mese,
-            valore: resolved,
-          });
-        }
-      }
-    }
-
-    if (entrate.length === 0) {
-      setError("Nessuna entrata da salvare");
-      setSaving(false);
-      return;
+      const intId = isEdit ? entrata!.intestatarioId : intestatarioId;
+      entrateToSave.push({ intestatarioId: intId, tipoEntrataId: tipoId, anno: isEdit ? entrata!.anno : anno, mese: isEdit ? entrata!.mese : mese, valore: resolved, note: noteValue });
     }
 
     try {
       const res = await fetch("/api/entrate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entrate }),
+        body: JSON.stringify({ entrate: entrateToSave }),
       });
-
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || "Errore durante il salvataggio");
         return;
       }
-
       onSave();
       onClose();
     } catch {
@@ -264,40 +221,12 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     }
   };
 
-  const renderField = (tipoId: string) => {
-    const preview = getResolvedPreview(tipoId);
-    const hasFormula = values[tipoId]?.trim().startsWith("=");
-    const prevVal = prevValues[tipoId];
-    return (
-      <TextField
-        size="small"
-        fullWidth
-        value={values[tipoId] ?? ""}
-        onChange={(e) => handleValueChange(tipoId, e.target.value)}
-        placeholder="0,00"
-        slotProps={{
-          input: {
-            startAdornment: hasFormula ? (
-              <InputAdornment position="start">
-                <Tooltip title="Formula attiva">
-                  <FunctionsIcon fontSize="small" color="primary" />
-                </Tooltip>
-              </InputAdornment>
-            ) : undefined,
-            endAdornment: !preview ? (
-              <InputAdornment position="end">€</InputAdornment>
-            ) : undefined,
-          },
-        }}
-        helperText={preview ?? (prevVal ? `Prec: ${parseFloat(prevVal).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €` : undefined)}
-        error={preview === "Formula non valida"}
-      />
-    );
-  };
+  const preview = getPreview();
+  const hasFormula = valore.trim().startsWith("=");
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
-      <DialogTitle>Inserimento Entrate</DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth fullScreen={isMobile}>
+      <DialogTitle>{isEdit ? "Modifica Entrata" : "Nuova Entrata"}</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2, mt: 1 }}>
@@ -305,91 +234,121 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
           </Alert>
         )}
 
-        <Box sx={{ display: "flex", gap: 2, mb: 2, mt: 1 }}>
-          <MonthYearPicker anno={anno} mese={mese} onChange={handlePeriodChange} />
-        </Box>
-
-        {/* Selettore intestatario */}
-        {intestatari.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-              Intestatario
-            </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-              {intestatari.map((int) => (
-                <Chip
-                  key={int.id}
-                  label={`${int.nome} ${int.cognome}`}
-                  color={selectedChip === int.id ? "primary" : "default"}
-                  variant={selectedChip === int.id ? "filled" : "outlined"}
-                  onClick={() => handleChipSelect(int.id)}
-                />
-              ))}
-              <Chip
-                label="Comune"
-                color={selectedChip === "comune" ? "primary" : "default"}
-                variant={selectedChip === "comune" ? "filled" : "outlined"}
-                onClick={() => handleChipSelect("comune")}
-              />
-            </Box>
-            {selectedChip === "comune" && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                Il valore inserito viene diviso equamente tra tutti gli intestatari
-              </Typography>
-            )}
-          </Box>
-        )}
-
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <CircularProgress />
           </Box>
-        ) : tipiEntrata.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
-            Nessun tipo entrata disponibile.
-          </Typography>
         ) : (
-          <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Usa <code>=prev+100</code> per formule. <code>prev</code> = entrata mese precedente.
-            </Typography>
-
-            {isMobile ? (
-              <Stack spacing={1.5}>
-                {tipiEntrata.map((tipo) => (
-                  <Box key={tipo.id} sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
-                    <Chip label={tipo.nome} size="small" variant="outlined" sx={{ minWidth: 100, mt: 0.5 }} />
-                    <Box sx={{ flex: 1 }}>
-                      {renderField(tipo.id)}
-                    </Box>
-                  </Box>
-                ))}
-              </Stack>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+            {/* Periodo */}
+            {isEdit ? (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Periodo</Typography>
+                <Typography variant="body2">{MESI_LUNGHI[entrata!.mese - 1]} {entrata!.anno}</Typography>
+              </Box>
             ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell><strong>Tipo Entrata</strong></TableCell>
-                      <TableCell sx={{ width: 220 }}><strong>Valore</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {tipiEntrata.map((tipo) => (
-                      <TableRow key={tipo.id}>
-                        <TableCell>
-                          <Chip label={tipo.nome} size="small" variant="outlined" />
-                        </TableCell>
-                        <TableCell>
-                          {renderField(tipo.id)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <MonthYearPicker anno={anno} mese={mese} onChange={handlePeriodChange} />
             )}
-          </>
+
+            {/* Intestatario */}
+            {isEdit ? (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Intestatario</Typography>
+                <Typography variant="body2">{entrata!.intestatario.nome} {entrata!.intestatario.cognome}</Typography>
+              </Box>
+            ) : (
+              <FormControl fullWidth size="small">
+                <InputLabel>Intestatario</InputLabel>
+                <Select
+                  value={intestatarioId}
+                  label="Intestatario"
+                  onChange={(e) => handleIntestatarioChange(e.target.value)}
+                >
+                  {intestatari.map((int) => (
+                    <MenuItem key={int.id} value={int.id}>
+                      {int.nome} {int.cognome}
+                    </MenuItem>
+                  ))}
+                  <MenuItem value="comune">
+                    <em>Comune (diviso tra tutti)</em>
+                  </MenuItem>
+                </Select>
+                {intestatarioId === "comune" && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Il valore viene diviso equamente tra tutti gli intestatari
+                  </Typography>
+                )}
+              </FormControl>
+            )}
+
+            {/* Tipo entrata */}
+            {isEdit ? (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Tipo</Typography>
+                <Box sx={{ mt: 0.5 }}>
+                  <Chip label={entrata!.tipoEntrata.nome} size="small" variant="outlined" />
+                </Box>
+              </Box>
+            ) : (
+              <FormControl fullWidth size="small">
+                <InputLabel>Tipo Entrata</InputLabel>
+                <Select
+                  value={tipoEntrataId}
+                  label="Tipo Entrata"
+                  onChange={(e) => handleTipoChange(e.target.value)}
+                >
+                  {tipiEntrata.map((tipo) => (
+                    <MenuItem key={tipo.id} value={tipo.id}>
+                      {tipo.nome}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {/* Valore */}
+            <TextField
+              label="Valore"
+              size="small"
+              fullWidth
+              value={valore}
+              onChange={(e) => setValore(e.target.value)}
+              placeholder="0,00"
+              autoFocus={isEdit}
+              slotProps={{
+                input: {
+                  startAdornment: hasFormula ? (
+                    <InputAdornment position="start">
+                      <Tooltip title="Formula attiva">
+                        <FunctionsIcon fontSize="small" color="primary" />
+                      </Tooltip>
+                    </InputAdornment>
+                  ) : undefined,
+                  endAdornment: !preview ? (
+                    <InputAdornment position="end">€</InputAdornment>
+                  ) : undefined,
+                },
+              }}
+              helperText={
+                preview ??
+                (prevValue !== null
+                  ? `Prec: ${prevValue.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €`
+                  : "Usa =prev+100 per formule")
+              }
+              error={preview === "Formula non valida"}
+            />
+
+            {/* Note */}
+            <TextField
+              label="Note"
+              size="small"
+              fullWidth
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              multiline
+              rows={2}
+            />
+          </Box>
         )}
       </DialogContent>
       <DialogActions>
@@ -399,7 +358,7 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={saving || loading || tipiEntrata.length === 0}
+          disabled={saving || loading}
         >
           {saving ? "Salvataggio..." : "Salva"}
         </Button>
