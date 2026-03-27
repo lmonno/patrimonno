@@ -24,6 +24,7 @@ import {
 } from "@mui/material";
 import FunctionsIcon from "@mui/icons-material/Functions";
 import MonthYearPicker, { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
+import { parseItalianNumber, evaluateFormula, formatItalianNumber } from "@/lib/formatNumbers";
 
 interface Intestatario {
   id: string;
@@ -55,29 +56,6 @@ interface EntrataFormProps {
   defaultAnno: number;
   defaultMese: number;
   entrata?: EntrataData; // se presente, modalità modifica
-}
-
-function parseItalianNumber(raw: string): number {
-  const normalized = raw.includes(",")
-    ? raw.replace(/\./g, "").replace(",", ".")
-    : raw;
-  return parseFloat(normalized);
-}
-
-function evaluateFormula(input: string, prev: number | null): number | null {
-  if (!input.startsWith("=")) return null;
-  const expr = input.slice(1).trim();
-  const prevValue = prev ?? 0;
-  try {
-    const withPrev = expr.replace(/prev/gi, prevValue.toString());
-    const sanitized = withPrev.replace(/,/g, ".");
-    if (!/^[\d\s+\-*/().]+$/.test(sanitized)) return null;
-    const result = new Function(`return (${sanitized})`)();
-    if (typeof result !== "number" || !isFinite(result)) return null;
-    return Math.round(result * 100) / 100;
-  } catch {
-    return null;
-  }
 }
 
 function getPreviousMonth(anno: number, mese: number) {
@@ -143,7 +121,7 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     setMese(m);
     setIntestatarioId(intId);
     setTipoEntrataId(tipoId);
-    setValore(entrata ? parseFloat(entrata.valore.toString()).toString() : "");
+    setValore(entrata ? formatItalianNumber(entrata.valore) : "");
     setNote(entrata?.note ?? "");
     setPrevValue(null);
     loadData();

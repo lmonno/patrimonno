@@ -60,6 +60,7 @@ import ImportDialog from "./ImportDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import MonthYearPicker, { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { parseItalianNumber, evaluateFormula, formatItalianNumber } from "@/lib/formatNumbers";
 
 interface SaldoWithConto {
   id: string;
@@ -87,29 +88,6 @@ function getCurrentPeriod() {
     anno -= 1;
   }
   return { anno, mese };
-}
-
-function parseItalianNumber(raw: string): number {
-  const normalized = raw.includes(",")
-    ? raw.replace(/\./g, "").replace(",", ".")
-    : raw;
-  return parseFloat(normalized);
-}
-
-function evaluateFormula(input: string, prev: number | null): number | null {
-  if (!input.startsWith("=")) return null;
-  const expr = input.slice(1).trim();
-  const prevValue = prev ?? 0;
-  try {
-    const withPrev = expr.replace(/prev/gi, prevValue.toString());
-    const sanitized = withPrev.replace(/,/g, ".");
-    if (!/^[\d\s+\-*/().]+$/.test(sanitized)) return null;
-    const result = new Function(`return (${sanitized})`)();
-    if (typeof result !== "number" || !isFinite(result)) return null;
-    return Math.round(result * 100) / 100;
-  } catch {
-    return null;
-  }
 }
 
 // ─── Sortable Table Row ───
@@ -255,7 +233,7 @@ export default function SaldiTable() {
   const startEdit = (s: SaldoWithConto) => {
     if (reordering) return;
     setEditingId(s.id);
-    setEditValue(s.formula ?? parseFloat(s.valore.toString()).toString());
+    setEditValue(s.formula ?? formatItalianNumber(s.valore));
     setTimeout(() => editInputRef.current?.focus(), 50);
   };
 

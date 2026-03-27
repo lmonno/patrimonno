@@ -20,13 +20,7 @@ import {
   Switch,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-
-function parseItalianNumber(raw: string): number {
-  const normalized = raw.includes(",")
-    ? raw.replace(/\./g, "").replace(",", ".")
-    : raw;
-  return parseFloat(normalized);
-}
+import { parseItalianNumber } from "@/lib/formatNumbers";
 
 interface Intestatario {
   id: string;

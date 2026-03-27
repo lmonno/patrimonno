@@ -35,6 +35,7 @@ import FlussoForm from "./FlussoForm";
 import ImportFlussiDialog from "./ImportFlussiDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { formatItalianNumber } from "@/lib/formatNumbers";
 
 interface FlussoWithRelations {
   id: string;
@@ -131,7 +132,7 @@ export default function FlussiTable() {
     setEditData({
       id: f.id,
       data: d.toISOString().split("T")[0],
-      importo: parseFloat(f.importo.toString()).toString(),
+      importo: formatItalianNumber(f.importo),
       descrizione: f.descrizione,
       categoriaId: f.categoriaId,
       categoriaNome: f.categoria.nome,
