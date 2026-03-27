@@ -57,12 +57,20 @@ interface EntrataFormProps {
   entrata?: EntrataData; // se presente, modalità modifica
 }
 
+function parseItalianNumber(raw: string): number {
+  const normalized = raw.includes(",")
+    ? raw.replace(/\./g, "").replace(",", ".")
+    : raw;
+  return parseFloat(normalized);
+}
+
 function evaluateFormula(input: string, prev: number | null): number | null {
   if (!input.startsWith("=")) return null;
   const expr = input.slice(1).trim();
   const prevValue = prev ?? 0;
   try {
-    const sanitized = expr.replace(/prev/gi, prevValue.toString());
+    const withPrev = expr.replace(/prev/gi, prevValue.toString());
+    const sanitized = withPrev.replace(/,/g, ".");
     if (!/^[\d\s+\-*/().]+$/.test(sanitized)) return null;
     const result = new Function(`return (${sanitized})`)();
     if (typeof result !== "number" || !isFinite(result)) return null;
@@ -167,7 +175,7 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
       const result = evaluateFormula(raw, prevValue);
       return result !== null ? result.toString() : null;
     }
-    const num = parseFloat(raw);
+    const num = parseItalianNumber(raw);
     return isFinite(num) ? num.toString() : null;
   };
 

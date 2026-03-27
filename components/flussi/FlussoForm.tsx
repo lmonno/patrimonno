@@ -21,6 +21,13 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
+function parseItalianNumber(raw: string): number {
+  const normalized = raw.includes(",")
+    ? raw.replace(/\./g, "").replace(",", ".")
+    : raw;
+  return parseFloat(normalized);
+}
+
 interface Intestatario {
   id: string;
   nome: string;
@@ -140,7 +147,7 @@ export default function FlussoForm({ open, onClose, onSave, editData }: FlussoFo
 
       const body = {
         data: form.data,
-        importo: form.importo,
+        importo: parseItalianNumber(form.importo).toString(),
         descrizione: form.descrizione,
         categoriaId,
         intestatarioId: form.intestatarioId,
@@ -199,7 +206,8 @@ export default function FlussoForm({ open, onClose, onSave, editData }: FlussoFo
 
           <TextField
             label="Importo"
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={form.importo}
             onChange={(e) => setForm((f) => ({ ...f, importo: e.target.value }))}
             fullWidth
