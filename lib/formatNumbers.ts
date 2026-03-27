@@ -1,14 +1,17 @@
 /**
- * Formatta un numero in formato italiano per la visualizzazione negli input.
- * Es: 36502.63 → "36.502,63"
+ * Formatta un numero in formato italiano: punto per migliaia, virgola per decimali.
+ * Es: 36502.63 → "36.502,63", -5000 → "-5.000,00"
+ * Implementazione manuale per garantire il formato anche in SSR senza ICU.
  */
 export function formatItalianNumber(value: number | string): string {
   const num = typeof value === "string" ? parseFloat(value) : value;
   if (!isFinite(num)) return "";
-  return num.toLocaleString("it-IT", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const isNegative = num < 0;
+  const fixed = Math.abs(num).toFixed(2);
+  const [intPart, decPart] = fixed.split(".");
+  const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const result = `${withThousands},${decPart}`;
+  return isNegative ? `-${result}` : result;
 }
 
 /**
