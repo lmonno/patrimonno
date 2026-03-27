@@ -186,7 +186,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
     if (!raw || !raw.startsWith("=")) return null;
     const prev = prevSaldi[contoId] ? parseFloat(prevSaldi[contoId]) : null;
     const result = evaluateFormula(raw, prev);
-    return result !== null ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €` : "Formula non valida";
+    return result !== null ? `= ${formatItalianNumber(result)} €` : "Formula non valida";
   };
 
   const theme = useTheme();
@@ -271,7 +271,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
                       </Box>
                       {prevSaldi[c.id] && (
                         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-                          Prec: {parseFloat(prevSaldi[c.id]).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                          Prec: {formatItalianNumber(prevSaldi[c.id])} €
                         </Typography>
                       )}
                       {renderSaldoField(c)}
@@ -317,7 +317,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
                         </TableCell>
                         <TableCell>
                           {prevSaldi[c.id]
-                            ? parseFloat(prevSaldi[c.id]).toLocaleString("it-IT", { minimumFractionDigits: 2 }) + " €"
+                            ? formatItalianNumber(prevSaldi[c.id]) + " €"
                             : "—"}
                         </TableCell>
                         <TableCell>

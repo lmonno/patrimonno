@@ -149,8 +149,8 @@ export default function FlussiTable() {
   };
 
   const formatImporto = (val: string | number) => {
-    const num = parseFloat(val.toString());
-    const formatted = Math.abs(num).toLocaleString("it-IT", { minimumFractionDigits: 2 });
+    const num = typeof val === "string" ? parseFloat(val) : val;
+    const formatted = formatItalianNumber(Math.abs(num));
     return num >= 0 ? `+${formatted} €` : `-${formatted} €`;
   };
 

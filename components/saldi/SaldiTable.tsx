@@ -365,7 +365,7 @@ export default function SaldiTable() {
           const prev = prevSaldi[s.contoId] ? parseFloat(prevSaldi[s.contoId]) : null;
           const result = evaluateFormula(editValue.trim(), prev);
           return result !== null
-            ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €`
+            ? `= ${formatItalianNumber(result)} €`
             : "Formula non valida";
         })()
       : null;
@@ -499,7 +499,7 @@ export default function SaldiTable() {
                                 onClick={() => startEdit(s)}
                                 sx={{ cursor: reordering ? "default" : "pointer" }}
                               >
-                                {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                                {formatItalianNumber(s.valore)} €
                               </Typography>
                             </Box>
                           )}
@@ -543,7 +543,7 @@ export default function SaldiTable() {
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Typography fontWeight={700}>Totale</Typography>
                     <Typography fontWeight={700} fontFamily="monospace" fontSize="1.1rem">
-                      {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                      {formatItalianNumber(totale)} €
                     </Typography>
                   </Box>
                 </Paper>
@@ -610,7 +610,7 @@ export default function SaldiTable() {
                                   sx={{ fontWeight: 600, fontFamily: "monospace", fontSize: "0.95rem", cursor: reordering ? "default" : "pointer" }}
                                   onClick={() => startEdit(s)}
                                 >
-                                  {parseFloat(s.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                                  {formatItalianNumber(s.valore)} €
                                 </Typography>
                                 {!reordering && (
                                   <Tooltip title="Modifica saldo">
@@ -640,7 +640,7 @@ export default function SaldiTable() {
                         <Typography fontWeight={700}>Totale</Typography>
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700, fontFamily: "monospace", fontSize: "1rem" }}>
-                        {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                        {formatItalianNumber(totale)} €
                       </TableCell>
                       {!reordering && <TableCell />}
                     </TableRow>

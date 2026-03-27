@@ -161,7 +161,7 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     if (!valore.trim().startsWith("=")) return null;
     const result = evaluateFormula(valore.trim(), prevValue);
     return result !== null
-      ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €`
+      ? `= ${formatItalianNumber(result)} €`
       : "Formula non valida";
   };
 
@@ -318,7 +318,7 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
               helperText={
                 preview ??
                 (prevValue !== null
-                  ? `Prec: ${prevValue.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €`
+                  ? `Prec: ${formatItalianNumber(prevValue)} €`
                   : "Usa =prev+100 per formule")
               }
               error={preview === "Formula non valida"}

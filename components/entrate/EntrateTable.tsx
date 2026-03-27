@@ -36,6 +36,7 @@ import { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { formatItalianNumber } from "@/lib/formatNumbers";
 
 interface EntrataWithRelations {
   id: string;
@@ -250,7 +251,7 @@ export default function EntrateTable() {
                     </Box>
                   </Box>
                   <Typography variant="body1" fontWeight={700} fontFamily="monospace" sx={{ flexShrink: 0 }}>
-                    {parseFloat(e.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                    {formatItalianNumber(e.valore)} €
                   </Typography>
                 </Box>
                 {e.note && (
@@ -273,7 +274,7 @@ export default function EntrateTable() {
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <Typography fontWeight={700}>Totale</Typography>
               <Typography fontWeight={700} fontFamily="monospace" fontSize="1.1rem">
-                {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                {formatItalianNumber(totale)} €
               </Typography>
             </Box>
           </Paper>
@@ -305,7 +306,7 @@ export default function EntrateTable() {
                     <Chip label={e.tipoEntrata.nome} size="small" variant="outlined" />
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600, fontFamily: "monospace", fontSize: "0.95rem" }}>
-                    {parseFloat(e.valore.toString()).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                    {formatItalianNumber(e.valore)} €
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" color="text.secondary">
@@ -331,7 +332,7 @@ export default function EntrateTable() {
                   <Typography fontWeight={700}>Totale</Typography>
                 </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700, fontFamily: "monospace", fontSize: "1rem" }}>
-                  {totale.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                  {formatItalianNumber(totale)} €
                 </TableCell>
                 <TableCell colSpan={2} />
               </TableRow>
