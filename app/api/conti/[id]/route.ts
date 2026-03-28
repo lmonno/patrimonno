@@ -15,7 +15,7 @@ export async function GET(
 
     const { id } = await params;
     const conto = await prisma.conto.findUnique({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, rapporto: { userId: session.user.id } },
       include: {
         rapporto: { select: { id: true, nome: true, istituto: true, iban: true } },
         tipoConto: { select: { id: true, nome: true } },
@@ -59,6 +59,15 @@ export async function PUT(
     }
 
     const { intestatariIds, ...rest } = parsed.data;
+
+    // Verifica che il conto appartenga all'utente corrente
+    const contoCheck = await prisma.conto.findUnique({
+      where: { id, deletedAt: null, rapporto: { userId: session.user.id } },
+      select: { id: true },
+    });
+    if (!contoCheck) {
+      return NextResponse.json({ error: "Conto non trovato" }, { status: 404 });
+    }
 
     if (intestatariIds) {
       await prisma.$transaction([
@@ -113,6 +122,14 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    // Verifica che il conto appartenga all'utente corrente
+    const contoCheck = await prisma.conto.findUnique({
+      where: { id, rapporto: { userId: session.user.id } },
+      select: { id: true },
+    });
+    if (!contoCheck) {
+      return NextResponse.json({ error: "Conto non trovato" }, { status: 404 });
+    }
     await prisma.conto.update({
       where: { id },
       data: { deletedAt: new Date() },

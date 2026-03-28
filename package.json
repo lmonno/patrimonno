@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "prisma migrate deploy && next start",
+    "seed:dev": "npx tsx prisma/seed-dev.ts",
+    "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.8.0",
+    "tsx": "^4.21.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -41,7 +43,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "prisma": "^7.4.2",
-    "tsx": "^4.21.0",
     "typescript": "^5"
   },
   "prisma": {

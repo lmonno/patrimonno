@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
       where: {
         anno: prevAnno,
         mese: prevMese,
+        conto: { rapporto: { userId: session.user.id } },
       },
       select: {
         contoId: true,

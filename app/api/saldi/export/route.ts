@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const conti = await prisma.conto.findMany({
-      where: { deletedAt: null, archiviato: false, rapporto: { archiviato: false } },
+      where: { deletedAt: null, archiviato: false, rapporto: { archiviato: false, userId: session.user.id } },
       include: {
         rapporto: { select: { nome: true, istituto: true } },
         tipoConto: { select: { nome: true } },
@@ -25,6 +25,7 @@ export async function GET() {
     });
 
     const saldi = await prisma.saldo.findMany({
+      where: { conto: { rapporto: { userId: session.user.id } } },
       select: { contoId: true, anno: true, mese: true, valore: true },
       orderBy: [{ anno: "asc" }, { mese: "asc" }],
     });

@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const mese = searchParams.get("mese");
     const contoId = searchParams.get("contoId");
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { conto: { rapporto: { userId: session.user.id } } };
     if (anno) where.anno = parseInt(anno);
     if (mese) where.mese = parseInt(mese);
     if (contoId) where.contoId = contoId;
@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             nome: true,
+            liquido: true,
             deletedAt: true,
             rapporto: { select: { id: true, nome: true, istituto: true, iban: true } },
             tipoConto: { select: { id: true, nome: true } },
@@ -64,8 +65,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verifica che i contoId appartengano all'utente corrente
+    const uniqueContoIds = [...new Set(parsed.data.saldi.map((s) => s.contoId))];
+    const contiUtente = await prisma.conto.findMany({
+      where: { id: { in: uniqueContoIds }, rapporto: { userId: session.user.id } },
+      select: { id: true },
+    });
+    const contiConsentiti = new Set(contiUtente.map((c) => c.id));
+    const saldiConsentiti = parsed.data.saldi.filter((s) => contiConsentiti.has(s.contoId));
+
     const results = await prisma.$transaction(
-      parsed.data.saldi.map((saldo) =>
+      saldiConsentiti.map((saldo) =>
         prisma.saldo.upsert({
           where: {
             contoId_anno_mese: {

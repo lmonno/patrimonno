@@ -11,6 +11,7 @@ export async function GET() {
     }
 
     const entrate = await prisma.entrata.findMany({
+      where: { intestatario: { userId: session.user.id } },
       include: {
         intestatario: { select: { id: true, nome: true, cognome: true } },
         tipoEntrata: { select: { id: true, nome: true } },

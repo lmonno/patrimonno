@@ -17,7 +17,7 @@ export async function POST(
 
     // Verifica che il rapporto esista
     const rapporto = await prisma.rapporto.findUnique({
-      where: { id: rapportoId, deletedAt: null },
+      where: { id: rapportoId, deletedAt: null, userId: session.user.id },
     });
     if (!rapporto) {
       return NextResponse.json({ error: "Rapporto non trovato" }, { status: 404 });

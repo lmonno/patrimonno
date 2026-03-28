@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Filtri
-    const whereClause: Record<string, unknown> = {};
+    const whereClause: Record<string, unknown> = { intestatario: { userId: session.user.id } };
     if (selectedIds) {
       whereClause.intestatarioId = { in: selectedIds };
     }

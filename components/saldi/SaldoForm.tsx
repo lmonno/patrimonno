@@ -30,6 +30,7 @@ import {
 } from "@mui/material";
 import FunctionsIcon from "@mui/icons-material/Functions";
 import MonthYearPicker from "@/components/ui/MonthYearPicker";
+import { parseItalianNumber, evaluateFormula, formatItalianNumber } from "@/lib/formatNumbers";
 
 interface Conto {
   id: string;
@@ -45,21 +46,6 @@ interface SaldoFormProps {
   onSave: () => void;
   defaultAnno: number;
   defaultMese: number;
-}
-
-function evaluateFormula(input: string, prev: number | null): number | null {
-  if (!input.startsWith("=")) return null;
-  const expr = input.slice(1).trim();
-  const prevValue = prev ?? 0;
-  try {
-    const sanitized = expr.replace(/prev/gi, prevValue.toString());
-    if (!/^[\d\s+\-*/().]+$/.test(sanitized)) return null;
-    const result = new Function(`return (${sanitized})`)();
-    if (typeof result !== "number" || !isFinite(result)) return null;
-    return Math.round(result * 100) / 100;
-  } catch {
-    return null;
-  }
 }
 
 export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultMese }: SaldoFormProps) {
@@ -92,7 +78,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
       const currentMap: Record<string, { valore: string; formula?: string | null }> = {};
       for (const s of currentData) {
         currentMap[s.contoId] = {
-          valore: parseFloat(s.valore.toString()).toString(),
+          valore: formatItalianNumber(s.valore),
           formula: s.formula,
         };
       }
@@ -103,7 +89,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
           // Se esiste una formula storicizzata, mostrala; altrimenti il valore numerico
           newValues[c.id] = currentMap[c.id].formula ?? currentMap[c.id].valore;
         } else if (prevData[c.id]) {
-          newValues[c.id] = prevData[c.id];
+          newValues[c.id] = formatItalianNumber(prevData[c.id]);
         } else {
           newValues[c.id] = "";
         }
@@ -143,7 +129,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
       const result = evaluateFormula(raw, prev);
       return result !== null ? result.toString() : null;
     }
-    const num = parseFloat(raw);
+    const num = parseItalianNumber(raw);
     return isFinite(num) ? num.toString() : null;
   };
 
@@ -200,7 +186,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
     if (!raw || !raw.startsWith("=")) return null;
     const prev = prevSaldi[contoId] ? parseFloat(prevSaldi[contoId]) : null;
     const result = evaluateFormula(raw, prev);
-    return result !== null ? `= ${result.toLocaleString("it-IT", { minimumFractionDigits: 2 })} €` : "Formula non valida";
+    return result !== null ? `= ${formatItalianNumber(result)} €` : "Formula non valida";
   };
 
   const theme = useTheme();
@@ -285,7 +271,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
                       </Box>
                       {prevSaldi[c.id] && (
                         <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-                          Prec: {parseFloat(prevSaldi[c.id]).toLocaleString("it-IT", { minimumFractionDigits: 2 })} €
+                          Prec: {formatItalianNumber(prevSaldi[c.id])} €
                         </Typography>
                       )}
                       {renderSaldoField(c)}
@@ -331,7 +317,7 @@ export default function SaldoForm({ open, onClose, onSave, defaultAnno, defaultM
                         </TableCell>
                         <TableCell>
                           {prevSaldi[c.id]
-                            ? parseFloat(prevSaldi[c.id]).toLocaleString("it-IT", { minimumFractionDigits: 2 }) + " €"
+                            ? formatItalianNumber(prevSaldi[c.id]) + " €"
                             : "—"}
                         </TableCell>
                         <TableCell>

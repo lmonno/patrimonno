@@ -15,7 +15,7 @@ export async function GET(
 
     const { id } = await params;
     const rapporto = await prisma.rapporto.findUnique({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, userId: session.user.id },
       include: {
         conti: {
           where: { deletedAt: null },
@@ -64,7 +64,7 @@ export async function PUT(
     }
 
     const rapporto = await prisma.rapporto.update({
-      where: { id, deletedAt: null },
+      where: { id, deletedAt: null, userId: session.user.id },
       data: parsed.data,
       include: {
         conti: {
@@ -108,7 +108,7 @@ export async function DELETE(
         data: { deletedAt: now },
       }),
       prisma.rapporto.update({
-        where: { id },
+        where: { id, userId: session.user.id },
         data: { deletedAt: now },
       }),
     ]);

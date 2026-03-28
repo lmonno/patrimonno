@@ -11,6 +11,7 @@ export async function GET() {
     }
 
     const flussi = await prisma.flussoStraordinario.findMany({
+      where: { userId: session.user.id },
       include: {
         categoria: { select: { nome: true } },
         intestatario: { select: { nome: true, cognome: true } },
@@ -21,7 +22,7 @@ export async function GET() {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Flussi Straordinari");
 
-    sheet.addRow(["Data", "Importo", "Descrizione", "Categoria", "Pagante"]);
+    sheet.addRow(["Data", "Importo", "Descrizione", "Categoria", "Pagante", "Ammortizzare", "Mesi Ammortamento"]);
     const headerRow = sheet.getRow(1);
     headerRow.font = { bold: true };
     headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD5E8D4" } };
@@ -33,6 +34,8 @@ export async function GET() {
     sheet.getColumn(3).width = 40;
     sheet.getColumn(4).width = 20;
     sheet.getColumn(5).width = 25;
+    sheet.getColumn(6).width = 16;
+    sheet.getColumn(7).width = 22;
 
     for (const flusso of flussi) {
       const pagante = flusso.intestatario
@@ -45,6 +48,8 @@ export async function GET() {
         flusso.descrizione,
         flusso.categoria.nome,
         pagante,
+        flusso.ammortizzare ? "Sì" : "No",
+        flusso.ammortizzare ? flusso.mesiAmmortamento : "",
       ]);
     }
 

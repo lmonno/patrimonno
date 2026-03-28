@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const intestatari = await prisma.intestatario.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, userId: session.user.id },
       select: {
         id: true,
         nome: true,
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     const intestatario = await prisma.intestatario.create({
-      data: parsed.data,
+      data: { ...parsed.data, userId: session.user.id },
       select: {
         id: true,
         nome: true,

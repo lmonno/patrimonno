@@ -189,7 +189,7 @@ export default function DashboardPage() {
   const tuttiTipiSelezionati = selectedTipoIds.length === 0;
 
   const formatEuro = (value: number) =>
-    Math.round(value).toLocaleString("de-DE") + " €";
+    Math.round(value).toLocaleString("it-IT") + " €";
 
   const risparmioPositivo = (patrimonio?.risparmioMedioMensile ?? 0) >= 0;
   const risparmioUltimoMesePositivo = (patrimonio?.risparmioUltimoMese ?? 0) >= 0;

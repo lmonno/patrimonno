@@ -6,6 +6,8 @@ export const createFlussoSchema = z.object({
   descrizione: z.string().min(1, "Descrizione obbligatoria"),
   categoriaId: z.string().min(1, "Categoria obbligatoria"),
   intestatarioId: z.string().nullable(),
+  ammortizzare: z.boolean().optional(),
+  mesiAmmortamento: z.number().int().min(1).nullable().optional(),
 });
 
 export const updateFlussoSchema = z.object({
@@ -14,4 +16,6 @@ export const updateFlussoSchema = z.object({
   descrizione: z.string().min(1, "Descrizione obbligatoria").optional(),
   categoriaId: z.string().min(1, "Categoria obbligatoria").optional(),
   intestatarioId: z.string().nullable().optional(),
+  ammortizzare: z.boolean().optional(),
+  mesiAmmortamento: z.number().int().min(1).nullable().optional(),
 });

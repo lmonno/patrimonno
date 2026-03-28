@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     const uniqueTipoIds = [...new Set(entrateToUpsert.map((e) => e.tipoEntrataId))];
 
     const [intestatariEsistenti, tipiEsistenti] = await Promise.all([
-      prisma.intestatario.findMany({ where: { id: { in: uniqueIntIds } }, select: { id: true } }),
+      prisma.intestatario.findMany({ where: { id: { in: uniqueIntIds }, userId: session.user.id }, select: { id: true } }),
       prisma.tipoEntrata.findMany({ where: { id: { in: uniqueTipoIds } }, select: { id: true } }),
     ]);
 

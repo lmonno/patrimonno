@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+type RisparmioSpeseRow = {
+  anno: number;
+  mese: number;
+  intestatarioId: string;
+  intestatario_nome: string;
+  risparmio: number;
+  spese: number;
+};
+
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
@@ -26,10 +35,9 @@ export async function GET(request: NextRequest) {
     const meseRif = parseInt(searchParams.get("mese") || String(defaultMese)) || defaultMese;
     const annoRif = parseInt(searchParams.get("anno") || String(defaultAnno)) || defaultAnno;
 
-    // Genera periodi: 48 mesi che terminano al mese di riferimento (36 + 12 per mediana mobile)
-    // Plus 1 extra month before the first period for saldo precedente calculation
+    // 48 mesi che terminano al mese di riferimento (36 display + 12 per mediana mobile)
     const periodi: { anno: number; mese: number }[] = [];
-    for (let i = 48; i >= 0; i--) {
+    for (let i = 47; i >= 0; i--) {
       let m = meseRif - i;
       let a = annoRif;
       while (m <= 0) {
@@ -38,215 +46,56 @@ export async function GET(request: NextRequest) {
       }
       periodi.push({ anno: a, mese: m });
     }
-    // periodi[0] is the extra month before the 48 calculation months
-    // periodi[1..48] are the 48 months we calculate spese for
 
-    // --- Load all liquid conti with intestatari and saldi ---
-    const contiLiquidi = await prisma.conto.findMany({
-      where: { deletedAt: null, liquido: true },
-      include: {
-        intestatari: {
-          include: {
-            intestatario: { select: { id: true } },
-          },
-        },
-        saldi: {
-          orderBy: [{ anno: "desc" }, { mese: "desc" }],
-        },
-      },
-    });
+    const startOrd = periodi[0].anno * 12 + periodi[0].mese;
+    const endOrd = annoRif * 12 + meseRif;
 
-    // --- Load all entrate in the range (no tipoEntrata filter) ---
-    const periodiCalcolo = periodi.slice(1); // 48 months
-    const entrateWhereClause: Record<string, unknown> = {};
-    if (selectedIds) {
-      entrateWhereClause.intestatarioId = { in: selectedIds };
-    }
+    const rows = await prisma.$queryRaw<RisparmioSpeseRow[]>`
+      SELECT anno, mese, "intestatarioId", intestatario_nome, risparmio, spese
+      FROM risparmio_spese
+      WHERE (anno * 12 + mese) >= ${startOrd} AND (anno * 12 + mese) <= ${endOrd} AND "userId" = ${session.user.id}
+      ORDER BY anno, mese, "intestatarioId"
+    `;
 
-    const entrate = await prisma.entrata.findMany({
-      where: {
-        ...entrateWhereClause,
-        OR: periodiCalcolo.map((p) => ({ anno: p.anno, mese: p.mese })),
-      },
-      select: {
-        anno: true,
-        mese: true,
-        valore: true,
-        intestatario: {
-          select: { id: true, nome: true, cognome: true },
-        },
-      },
-    });
+    const filteredRows = selectedIds
+      ? rows.filter((r) => selectedIds.includes(r.intestatarioId))
+      : rows;
 
-    // --- Load all flussi straordinari in the range ---
-    const primoMese = periodiCalcolo[0];
-    const ultimoMese = periodiCalcolo[periodiCalcolo.length - 1];
-    const dataInizio = new Date(primoMese.anno, primoMese.mese - 1, 1);
-    const dataFine = new Date(ultimoMese.anno, ultimoMese.mese, 0); // ultimo giorno
-
-    const whereFlussi: Record<string, unknown> = {
-      data: { gte: dataInizio, lte: dataFine },
-    };
-    if (selectedIds) {
-      whereFlussi.OR = [
-        { intestatarioId: { in: selectedIds } },
-        { intestatarioId: null },
-      ];
-    }
-
-    const flussi = await prisma.flussoStraordinario.findMany({
-      where: whereFlussi,
-      select: {
-        data: true,
-        importo: true,
-        intestatarioId: true,
-      },
-    });
-
-    // --- Load all intestatari for quota calculation of common flussi ---
-    const tuttiIntestatari = await prisma.intestatario.findMany({
-      where: { deletedAt: null },
-      select: { id: true, nome: true, cognome: true },
-    });
-    const numTotaleIntestatari = tuttiIntestatari.length;
-
-    // --- Build intestatari map from entrate + all intestatari ---
+    // Mappa intestatari presenti nei dati
     const intestatariMap = new Map<string, string>();
-    for (const e of entrate) {
-      if (!intestatariMap.has(e.intestatario.id)) {
-        intestatariMap.set(e.intestatario.id, `${e.intestatario.nome} ${e.intestatario.cognome}`);
-      }
-    }
-    // Also add intestatari from conti (they may have saldi but no entrate)
-    for (const conto of contiLiquidi) {
-      for (const ci of conto.intestatari) {
-        const intId = ci.intestatario.id;
-        if (!intestatariMap.has(intId)) {
-          const int = tuttiIntestatari.find((i) => i.id === intId);
-          if (int) {
-            intestatariMap.set(intId, `${int.nome} ${int.cognome}`);
-          }
-        }
-      }
-    }
-    // If filtering by selectedIds, only keep those
-    if (selectedIds) {
-      for (const id of intestatariMap.keys()) {
-        if (!selectedIds.includes(id)) {
-          intestatariMap.delete(id);
-        }
+    for (const r of filteredRows) {
+      if (!intestatariMap.has(r.intestatarioId)) {
+        intestatariMap.set(r.intestatarioId, r.intestatario_nome);
       }
     }
 
-    // --- Aggregate entrate per month per intestatario ---
-    const entratePerMeseInt = new Map<string, number>();
-    for (const e of entrate) {
-      const key = `${e.anno}-${e.mese}::${e.intestatario.id}`;
-      entratePerMeseInt.set(key, (entratePerMeseInt.get(key) ?? 0) + Number(e.valore));
+    // Aggrega spese per mese
+    const meseMap = new Map<
+      string,
+      { anno: number; mese: number; totale: number; perIntestatario: Record<string, number> }
+    >();
+    for (const p of periodi) {
+      meseMap.set(`${p.anno}-${p.mese}`, { anno: p.anno, mese: p.mese, totale: 0, perIntestatario: {} });
+    }
+    for (const r of filteredRows) {
+      const entry = meseMap.get(`${r.anno}-${r.mese}`);
+      if (!entry) continue;
+      const spese = Number(r.spese);
+      entry.totale += spese;
+      entry.perIntestatario[r.intestatarioId] = Math.round(spese * 100) / 100;
     }
 
-    // --- Aggregate flussi straordinari per month per intestatario ---
-    const flussiPerMeseInt = new Map<string, number>();
-    for (const f of flussi) {
-      const d = new Date(f.data);
-      const fAnno = d.getFullYear();
-      const fMese = d.getMonth() + 1;
-
-      if (f.intestatarioId === null) {
-        // Flusso comune: distribute proportionally
-        if (selectedIds) {
-          for (const id of selectedIds) {
-            const key = `${fAnno}-${fMese}::${id}`;
-            const quota = 1 / numTotaleIntestatari;
-            flussiPerMeseInt.set(key, (flussiPerMeseInt.get(key) ?? 0) + Number(f.importo) * quota);
-          }
-        } else {
-          // Distribute equally among all intestatari
-          for (const int of tuttiIntestatari) {
-            const key = `${fAnno}-${fMese}::${int.id}`;
-            const quota = 1 / numTotaleIntestatari;
-            flussiPerMeseInt.set(key, (flussiPerMeseInt.get(key) ?? 0) + Number(f.importo) * quota);
-          }
-        }
-      } else {
-        const key = `${fAnno}-${fMese}::${f.intestatarioId}`;
-        flussiPerMeseInt.set(key, (flussiPerMeseInt.get(key) ?? 0) + Number(f.importo));
-      }
-    }
-
-    // --- Calculate saldo liquido per intestatario per month ---
-    // For each conto, determine quota per intestatario, then sum saldi
-    const saldoPerMeseInt = new Map<string, number>();
-
-    for (const conto of contiLiquidi) {
-      const intestatariIds = conto.intestatari.map((ci) => ci.intestatario.id);
-      const totaleIntestatari = intestatariIds.length;
-      if (totaleIntestatari === 0) continue;
-
-      // Determine which intestatari and their quota
-      const quotePerIntestatario: { id: string; quota: number }[] = [];
-
-      if (selectedIds) {
-        for (const intId of intestatariIds) {
-          if (selectedIds.includes(intId)) {
-            quotePerIntestatario.push({ id: intId, quota: 1 / totaleIntestatari });
-          }
-        }
-        if (quotePerIntestatario.length === 0) continue; // conto non pertinente
-      } else {
-        for (const intId of intestatariIds) {
-          quotePerIntestatario.push({ id: intId, quota: 1 / totaleIntestatari });
-        }
-      }
-
-      // For each period (including the extra month 0), add saldo contribution
-      for (const periodo of periodi) {
-        const saldo = conto.saldi.find(
-          (s) => s.anno === periodo.anno && s.mese === periodo.mese
-        );
-        if (saldo) {
-          const val = Number(saldo.valore);
-          for (const { id, quota } of quotePerIntestatario) {
-            const key = `${periodo.anno}-${periodo.mese}::${id}`;
-            saldoPerMeseInt.set(key, (saldoPerMeseInt.get(key) ?? 0) + val * quota);
-          }
-        }
-      }
-    }
-
-    // --- Calculate spese per month (48 months) ---
-    const datiCompleti = periodiCalcolo.map((p, idx) => {
-      const mesePrev = periodi[idx]; // periodi[0] for idx=0, which is the extra month
-      const meseKey = `${p.anno}-${p.mese}`;
-      const mesePrevKey = `${mesePrev.anno}-${mesePrev.mese}`;
-
-      let totale = 0;
-      const perIntestatario: Record<string, number> = {};
-
-      for (const [intId] of intestatariMap) {
-        const entrateInt = entratePerMeseInt.get(`${meseKey}::${intId}`) ?? 0;
-        const saldoCorrente = saldoPerMeseInt.get(`${meseKey}::${intId}`) ?? 0;
-        const saldoPrecedente = saldoPerMeseInt.get(`${mesePrevKey}::${intId}`) ?? 0;
-        const deltaSaldo = saldoCorrente - saldoPrecedente;
-        const flussiInt = flussiPerMeseInt.get(`${meseKey}::${intId}`) ?? 0;
-
-        // Spese = Entrate - (ΔSaldo - Flussi straordinari)
-        // = Entrate - ΔSaldo + Flussi straordinari
-        const speseInt = entrateInt - deltaSaldo + flussiInt;
-
-        perIntestatario[intId] = Math.round(speseInt * 100) / 100;
-        totale += speseInt;
-      }
-
+    const datiCompleti = periodi.map((p) => {
+      const entry = meseMap.get(`${p.anno}-${p.mese}`)!;
       return {
-        anno: p.anno,
-        mese: p.mese,
-        totale: Math.round(totale * 100) / 100,
-        perIntestatario,
+        anno: entry.anno,
+        mese: entry.mese,
+        totale: Math.round(entry.totale * 100) / 100,
+        perIntestatario: entry.perIntestatario,
       };
     });
 
-    // Calcola mediana mobile a 12 mesi (ultimi 36 mesi)
+    // Mediana mobile a 12 mesi (ultimi 36 mesi)
     const storico = datiCompleti.slice(12).map((punto, i) => {
       const finestra = datiCompleti.slice(i, i + 12).map((d) => d.totale);
       const sorted = [...finestra].sort((a, b) => a - b);

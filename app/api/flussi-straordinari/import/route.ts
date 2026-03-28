@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     // Carica categorie e intestatari per il mapping per nome
     const [categorie, intestatari] = await Promise.all([
       prisma.categoriaFlusso.findMany({ where: { deletedAt: null } }),
-      prisma.intestatario.findMany({ where: { deletedAt: null } }),
+      prisma.intestatario.findMany({ where: { deletedAt: null, userId: session.user.id } }),
     ]);
 
     const categoriaByNome = new Map(categorie.map((c) => [c.nome.toLowerCase(), c.id]));
@@ -71,6 +71,8 @@ export async function POST(request: NextRequest) {
       descrizione: string;
       categoriaId: string;
       intestatarioId: string | null;
+      ammortizzare: boolean;
+      mesiAmmortamento: number | null;
     }[] = [];
     const errori: string[] = [];
 
@@ -152,7 +154,25 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      flussiToCreate.push({ data, importo, descrizione, categoriaId, intestatarioId });
+      // Colonna 6: Ammortizzare (opzionale, default No)
+      const rawAmmort = extractCellValue(row.getCell(6).value);
+      const ammortizzare = rawAmmort
+        ? String(rawAmmort).trim().toLowerCase() === "sì" || String(rawAmmort).trim().toLowerCase() === "si"
+        : false;
+
+      // Colonna 7: Mesi Ammortamento (opzionale, default 12 se ammortizzare)
+      let mesiAmmortamento: number | null = null;
+      if (ammortizzare) {
+        const rawMesi = extractCellValue(row.getCell(7).value);
+        if (rawMesi !== null) {
+          const mesi = parseInt(String(rawMesi));
+          mesiAmmortamento = !isNaN(mesi) && mesi >= 1 ? mesi : 12;
+        } else {
+          mesiAmmortamento = 12;
+        }
+      }
+
+      flussiToCreate.push({ data, importo, descrizione, categoriaId, intestatarioId, ammortizzare, mesiAmmortamento });
     });
 
     if (flussiToCreate.length === 0) {
@@ -168,6 +188,9 @@ export async function POST(request: NextRequest) {
             descrizione: f.descrizione,
             categoriaId: f.categoriaId,
             intestatarioId: f.intestatarioId,
+            ammortizzare: f.ammortizzare,
+            mesiAmmortamento: f.mesiAmmortamento,
+            userId: session.user.id,
           },
         })
       )

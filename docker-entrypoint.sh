@@ -19,8 +19,15 @@ done
 echo "Esecuzione migrazioni Prisma..."
 npx prisma migrate deploy
 
-echo "Esecuzione seed..."
-npx tsx prisma/seed.ts 2>&1 || echo "Seed fallito o già eseguito"
+echo "Esecuzione seed base..."
+npx tsx prisma/seed.ts 2>&1 || echo "Seed base fallito o già eseguito"
+
+if [ "$SEED_DEV" = "true" ]; then
+  echo "Esecuzione seed di sviluppo..."
+  npx tsx prisma/seed-dev.ts 2>&1 || echo "Seed dev fallito"
+else
+  echo "Seed di sviluppo saltato (SEED_DEV non impostato)"
+fi
 
 echo "Avvio applicazione..."
 exec "$@"

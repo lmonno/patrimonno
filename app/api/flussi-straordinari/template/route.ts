@@ -12,7 +12,7 @@ export async function GET() {
 
     const [intestatari, categorie] = await Promise.all([
       prisma.intestatario.findMany({
-        where: { deletedAt: null },
+        where: { deletedAt: null, userId: session.user.id },
         orderBy: [{ cognome: "asc" }, { nome: "asc" }],
       }),
       prisma.categoriaFlusso.findMany({
@@ -25,7 +25,7 @@ export async function GET() {
     const sheet = workbook.addWorksheet("Flussi Straordinari");
 
     // Header
-    sheet.addRow(["Data", "Importo", "Descrizione", "Categoria", "Pagante"]);
+    sheet.addRow(["Data", "Importo", "Descrizione", "Categoria", "Pagante", "Ammortizzare", "Mesi Ammortamento"]);
     const headerRow = sheet.getRow(1);
     headerRow.font = { bold: true };
     headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD5E8D4" } };
@@ -37,6 +37,8 @@ export async function GET() {
     sheet.getColumn(3).width = 40;
     sheet.getColumn(4).width = 20;
     sheet.getColumn(5).width = 25;
+    sheet.getColumn(6).width = 16;
+    sheet.getColumn(7).width = 22;
 
     // Foglio di riferimento con categorie e intestatari validi
     const refSheet = workbook.addWorksheet("Riferimenti");
@@ -77,6 +79,15 @@ export async function GET() {
         type: "list",
         allowBlank: true,
         formulae: [`"${paganteList.join(",")}"`],
+      };
+    }
+
+    // Validazione dropdown per Ammortizzare (colonna 6)
+    for (let row = 2; row <= 500; row++) {
+      sheet.getCell(row, 6).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: ['"Sì,No"'],
       };
     }
 
