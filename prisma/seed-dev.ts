@@ -333,6 +333,144 @@ async function main() {
   }
   console.log(`✔ Flussi straordinari creati: ${flussiCreati}`);
 
+  // ── 9. Piani di Ammortamento ───────────────────────────────────────────
+  // Mutuo casa principale sul C/C Intesa di Marco
+  const contoMutuo = contiIntesa[0]; // C/C Principale
+
+  let pianoMutuo = await prisma.pianoAmmortamento.findFirst({
+    where: { nome: "Mutuo Casa Principale", userId: user.id },
+  });
+  if (!pianoMutuo) {
+    // Mutuo 150.000€ a 20 anni, tasso fisso ~2.5%, inizio gennaio 2024
+    // Rata mensile ≈ 795€, generiamo 36 rate (3 anni)
+    const importoMutuo = 150000;
+    const tassoAnnuo = 0.025;
+    const tassoMensile = tassoAnnuo / 12;
+    const numRate = 240; // 20 anni
+    const rataMensile = dec(
+      (importoMutuo * tassoMensile * Math.pow(1 + tassoMensile, numRate)) /
+      (Math.pow(1 + tassoMensile, numRate) - 1)
+    );
+
+    const rateMutuo: {
+      data: Date;
+      quotaCapitale: number;
+      quotaInteressi: number;
+      rataTotale: number;
+      debitoResiduo: number;
+      contributo: number;
+    }[] = [];
+
+    let debitoResiduo = importoMutuo;
+    // Generiamo 36 rate da gennaio 2024
+    for (let i = 0; i < 36; i++) {
+      const meseIdx = i; // 0-based
+      let mese = 1 + meseIdx;
+      let anno = 2024;
+      while (mese > 12) {
+        mese -= 12;
+        anno += 1;
+      }
+
+      const quotaInteressi = dec(debitoResiduo * tassoMensile);
+      const quotaCapitale = dec(rataMensile - quotaInteressi);
+      debitoResiduo = dec(debitoResiduo - quotaCapitale);
+      if (debitoResiduo < 0) debitoResiduo = 0;
+
+      // Contributo regionale: 150€/mese per i primi 10 anni
+      const contributo = i < 120 ? 150 : 0;
+
+      rateMutuo.push({
+        data: new Date(anno, mese - 1, 1),
+        quotaCapitale,
+        quotaInteressi,
+        rataTotale: rataMensile,
+        debitoResiduo,
+        contributo,
+      });
+    }
+
+    pianoMutuo = await prisma.pianoAmmortamento.create({
+      data: {
+        nome: "Mutuo Casa Principale",
+        contoId: contoMutuo.id,
+        userId: user.id,
+        rate: {
+          create: rateMutuo,
+        },
+      },
+    });
+    console.log(`✔ Piano ammortamento "Mutuo Casa Principale": ${rateMutuo.length} rate`);
+  } else {
+    console.log(`✔ Piano ammortamento "Mutuo Casa Principale" già esistente`);
+  }
+
+  // Prestito auto sul C/C Fineco cointestato
+  const contoPrestito = contiFineco[0]; // C/C Fineco
+
+  let pianoPrestito = await prisma.pianoAmmortamento.findFirst({
+    where: { nome: "Prestito Auto Fiat 500e", userId: user.id },
+  });
+  if (!pianoPrestito) {
+    // Prestito 15.000€ a 5 anni, tasso fisso ~4.5%, inizio agosto 2024
+    const importoPrestito = 15000;
+    const tassoAnnuoP = 0.045;
+    const tassoMensileP = tassoAnnuoP / 12;
+    const numRateP = 60;
+    const rataMensileP = dec(
+      (importoPrestito * tassoMensileP * Math.pow(1 + tassoMensileP, numRateP)) /
+      (Math.pow(1 + tassoMensileP, numRateP) - 1)
+    );
+
+    const ratePrestito: {
+      data: Date;
+      quotaCapitale: number;
+      quotaInteressi: number;
+      rataTotale: number;
+      debitoResiduo: number;
+      contributo: number;
+    }[] = [];
+
+    let debitoResiduoP = importoPrestito;
+    // Generiamo 20 rate da agosto 2024
+    for (let i = 0; i < 20; i++) {
+      let mese = 8 + i;
+      let anno = 2024;
+      while (mese > 12) {
+        mese -= 12;
+        anno += 1;
+      }
+
+      const quotaInteressi = dec(debitoResiduoP * tassoMensileP);
+      const quotaCapitale = dec(rataMensileP - quotaInteressi);
+      debitoResiduoP = dec(debitoResiduoP - quotaCapitale);
+      if (debitoResiduoP < 0) debitoResiduoP = 0;
+
+      ratePrestito.push({
+        data: new Date(anno, mese - 1, 1),
+        quotaCapitale,
+        quotaInteressi,
+        rataTotale: rataMensileP,
+        debitoResiduo: debitoResiduoP,
+        contributo: 0,
+      });
+    }
+
+    pianoPrestito = await prisma.pianoAmmortamento.create({
+      data: {
+        nome: "Prestito Auto Fiat 500e",
+        contoId: contoPrestito.id,
+        userId: user.id,
+        rate: {
+          create: ratePrestito,
+        },
+      },
+    });
+    console.log(`✔ Piano ammortamento "Prestito Auto Fiat 500e": ${ratePrestito.length} rate`);
+  } else {
+    console.log(`✔ Piano ammortamento "Prestito Auto Fiat 500e" già esistente`);
+  }
+
   // ── Riepilogo ─────────────────────────────────────────────────────────
   console.log("\n═══════════════════════════════════════════════════");
   console.log("  SEED DI SVILUPPO COMPLETATO");
@@ -343,6 +481,7 @@ async function main() {
   console.log(`  Saldi:        ${saldiCreati} (24 mesi × 6 conti)`);
   console.log(`  Entrate:      ${entrateCreate} (stipendi, cedole, affitto, contributi)`);
   console.log(`  Flussi:       ${flussiDati.length} (spese/entrate straordinarie)`);
+  console.log(`  Piani Amm.:   2 (Mutuo Casa 36 rate, Prestito Auto 20 rate)`);
   console.log("═══════════════════════════════════════════════════");
   console.log("\n  Login test:   test@family.local / test1234!");
   console.log("  Login admin:  admin@family.local / admin123!\n");
