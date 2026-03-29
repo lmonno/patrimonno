@@ -66,6 +66,7 @@ model User {
   intestatari          Intestatario[]
   rapporti             Rapporto[]
   flussiStraordinari   FlussoStraordinario[]
+  pianiAmmortamento    PianoAmmortamento[]
 
   @@map("users")
 }
@@ -139,8 +140,9 @@ model Conto {
 
   rapporto    Rapporto            @relation(fields: [rapportoId], references: [id])
   tipoConto   TipoConto           @relation(fields: [tipoContoId], references: [id])
-  intestatari ContoIntestatario[]
-  saldi       Saldo[]
+  intestatari       ContoIntestatario[]
+  saldi             Saldo[]
+  pianiAmmortamento PianoAmmortamento[]
 
   @@map("conti")
 }
@@ -171,6 +173,41 @@ model Saldo {
 
   @@unique([contoId, anno, mese])
   @@map("saldi")
+}
+
+// ─── PIANI DI AMMORTAMENTO ────────────────────────────────────
+
+model PianoAmmortamento {
+  id          String   @id @default(cuid())
+  nome        String
+  contoId     String
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  conto  Conto  @relation(fields: [contoId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+  rate   RataAmmortamento[]
+
+  @@map("piani_ammortamento")
+}
+
+model RataAmmortamento {
+  id                  String   @id @default(cuid())
+  pianoAmmortamentoId String
+  data                DateTime @db.Date
+  quotaCapitale       Decimal  @db.Decimal(15, 2)
+  quotaInteressi      Decimal  @db.Decimal(15, 2)
+  rataTotale          Decimal  @db.Decimal(15, 2)
+  debitoResiduo       Decimal  @db.Decimal(15, 2)
+  contributo          Decimal  @db.Decimal(15, 2) @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  pianoAmmortamento PianoAmmortamento @relation(fields: [pianoAmmortamentoId], references: [id], onDelete: Cascade)
+
+  @@unique([pianoAmmortamentoId, data])
+  @@map("rate_ammortamento")
 }
 
 // ─── ENTRATE ──────────────────────────────────────────────────

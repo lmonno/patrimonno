@@ -22,6 +22,7 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import EventRepeatIcon from "@mui/icons-material/EventRepeat";
 
 const DRAWER_WIDTH = 260;
 
@@ -30,6 +31,7 @@ const navItems = [
   { label: "Saldi", href: "/saldi", icon: <TrendingUpIcon /> },
   { label: "Entrate", href: "/entrate", icon: <PaymentsIcon /> },
   { label: "Flussi Straordinari", href: "/flussi-straordinari", icon: <SwapHorizIcon /> },
+  { label: "Ammortamenti", href: "/ammortamenti", icon: <EventRepeatIcon /> },
   { label: "Rapporti", href: "/conti", icon: <AccountBalanceIcon /> },
   { label: "Intestatari", href: "/intestatari", icon: <PeopleIcon /> },
   { label: "Tipi Conto", href: "/tipi-conto", icon: <CategoryIcon /> },
