@@ -115,6 +115,14 @@ export async function POST(request: NextRequest) {
       return true;
     });
 
+    if (saldiValidi.length === 0) {
+      return NextResponse.json({
+        error: "Nessun saldo valido da importare",
+        count: 0,
+        errors: righeConErrore.length > 0 ? righeConErrore : undefined,
+      }, { status: 400 });
+    }
+
     const results = await prisma.$transaction(
       saldiValidi.map((s) =>
         prisma.saldo.upsert({

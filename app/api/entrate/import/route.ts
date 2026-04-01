@@ -132,6 +132,14 @@ export async function POST(request: NextRequest) {
       return true;
     });
 
+    if (entrateValide.length === 0) {
+      return NextResponse.json({
+        error: "Nessuna entrata valida da importare",
+        count: 0,
+        errors: righeConErrore.length > 0 ? righeConErrore : undefined,
+      }, { status: 400 });
+    }
+
     const results = await prisma.$transaction(
       entrateValide.map((e) =>
         prisma.entrata.upsert({
