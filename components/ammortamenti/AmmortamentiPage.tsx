@@ -36,6 +36,7 @@ import PianoForm from "./PianoForm";
 import ImportAmmortamentoDialog from "./ImportAmmortamentoDialog";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
+import MonthYearPicker from "@/components/ui/MonthYearPicker";
 import { formatItalianNumber } from "@/lib/formatNumbers";
 
 interface Rata {
@@ -65,7 +66,36 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+function formatMonthYear(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("it-IT", { month: "2-digit", year: "numeric" });
+}
+
+/** Trova la rata più recente con data <= fine mese di riferimento */
+function getDebitoResiduoAllaData(rate: Rata[], anno: number, mese: number): string | null {
+  // Fine del mese di riferimento
+  const rifDate = new Date(anno, mese, 0); // ultimo giorno del mese
+  let found: Rata | null = null;
+  for (const r of rate) {
+    const d = new Date(r.data);
+    if (d <= rifDate) {
+      found = r;
+    } else {
+      break; // rate ordinate per data crescente
+    }
+  }
+  return found ? found.debitoResiduo : null;
+}
+
+function getCurrentPeriod() {
+  const now = new Date();
+  return { anno: now.getFullYear(), mese: now.getMonth() + 1 };
+}
+
 export default function AmmortamentiPage() {
+  const { anno: initAnno, mese: initMese } = getCurrentPeriod();
+  const [anno, setAnno] = useState(initAnno);
+  const [mese, setMese] = useState(initMese);
   const [piani, setPiani] = useState<Piano[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -187,7 +217,8 @@ export default function AmmortamentiPage() {
         <Typography variant="h5" fontWeight={600}>
           Piani di Ammortamento
         </Typography>
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+          <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
           <Button
             variant="outlined"
             startIcon={<UploadIcon />}
@@ -236,16 +267,29 @@ export default function AmmortamentiPage() {
                       </IconButton>
                     </Box>
                   </Box>
-                  <Box sx={{ display: "flex", gap: 0.5, mt: 1 }}>
+                  <Box sx={{ display: "flex", gap: 0.5, mt: 1, flexWrap: "wrap" }}>
                     <Chip label={`${piano.rate.length} rate`} size="small" variant="outlined" />
-                    {piano.rate.length > 0 && (
-                      <Chip
-                        label={`Residuo: ${formatItalianNumber(piano.rate[piano.rate.length - 1].debitoResiduo)} €`}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                      />
-                    )}
+                    {piano.rate.length > 0 && (() => {
+                      const debitoAllaData = getDebitoResiduoAllaData(piano.rate, anno, mese);
+                      const scadenza = piano.rate[piano.rate.length - 1].data;
+                      return (
+                        <>
+                          {debitoAllaData !== null && (
+                            <Chip
+                              label={`Residuo: ${formatItalianNumber(debitoAllaData)} €`}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          )}
+                          <Chip
+                            label={`Scadenza: ${formatMonthYear(scadenza)}`}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </>
+                      );
+                    })()}
                   </Box>
                   <Collapse in={isExpanded}>
                     <Divider sx={{ mt: 1.5 }} />
@@ -267,13 +311,15 @@ export default function AmmortamentiPage() {
                 <TableCell><strong>Rapporto / Conto</strong></TableCell>
                 <TableCell align="center"><strong>Rate</strong></TableCell>
                 <TableCell align="right"><strong>Debito Residuo</strong></TableCell>
+                <TableCell align="center"><strong>Scadenza</strong></TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
             <TableBody>
               {piani.map((piano) => {
                 const isExpanded = expandedId === piano.id;
-                const lastRata = piano.rate.length > 0 ? piano.rate[piano.rate.length - 1] : null;
+                const debitoAllaData = piano.rate.length > 0 ? getDebitoResiduoAllaData(piano.rate, anno, mese) : null;
+                const scadenza = piano.rate.length > 0 ? piano.rate[piano.rate.length - 1].data : null;
 
                 return (
                   <TableRow key={piano.id} sx={{ "& > *": { borderBottom: isExpanded ? "none !important" : undefined } }} hover>
@@ -300,7 +346,10 @@ export default function AmmortamentiPage() {
                       <Chip label={piano.rate.length} size="small" variant="outlined" />
                     </TableCell>
                     <TableCell align="right" sx={{ fontFamily: "monospace", fontWeight: 600 }}>
-                      {lastRata ? `${formatItalianNumber(lastRata.debitoResiduo)} €` : "—"}
+                      {debitoAllaData !== null ? `${formatItalianNumber(debitoAllaData)} €` : "—"}
+                    </TableCell>
+                    <TableCell align="center">
+                      {scadenza ? formatMonthYear(scadenza) : "—"}
                     </TableCell>
                     <TableCell align="right">
                       <Tooltip title="Modifica">
