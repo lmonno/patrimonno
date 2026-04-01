@@ -105,7 +105,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (entrateToUpsert.length === 0) {
-      return NextResponse.json({ count: 0, errors: righeConErrore });
+      return NextResponse.json({
+        error: "Nessuna entrata trovata nel file",
+        count: 0,
+        parsed: 0,
+        errors: righeConErrore.length > 0 ? righeConErrore : undefined,
+      }, { status: 400 });
     }
 
     // Verifica intestatarioId e tipoEntrataId
@@ -136,36 +141,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         error: "Nessuna entrata valida da importare",
         count: 0,
-        errors: righeConErrore.length > 0 ? righeConErrore : undefined,
+        parsed: entrateToUpsert.length,
+        validated: 0,
+        debug: {
+          intestatariNelFile: uniqueIntIds,
+          intestatariTrovati: intestatariEsistenti.map((i: { id: string }) => i.id),
+          tipiNelFile: uniqueTipoIds,
+          tipiTrovati: tipiEsistenti.map((t: { id: string }) => t.id),
+        },
+        errors: righeConErrore.length > 0 ? righeConErrore.slice(0, 10) : undefined,
       }, { status: 400 });
     }
 
-    const results = await prisma.$transaction(
-      entrateValide.map((e) =>
-        prisma.entrata.upsert({
-          where: {
-            intestatarioId_tipoEntrataId_anno_mese: {
+    // Suddividi in batch da 50 per evitare problemi con transazioni troppo grandi
+    const BATCH_SIZE = 50;
+    let totalInserted = 0;
+
+    for (let i = 0; i < entrateValide.length; i += BATCH_SIZE) {
+      const batch = entrateValide.slice(i, i + BATCH_SIZE);
+      const results = await prisma.$transaction(
+        batch.map((e) =>
+          prisma.entrata.upsert({
+            where: {
+              intestatarioId_tipoEntrataId_anno_mese: {
+                intestatarioId: e.intestatarioId,
+                tipoEntrataId: e.tipoEntrataId,
+                anno: e.anno,
+                mese: e.mese,
+              },
+            },
+            update: { valore: e.valore },
+            create: {
               intestatarioId: e.intestatarioId,
               tipoEntrataId: e.tipoEntrataId,
               anno: e.anno,
               mese: e.mese,
+              valore: e.valore,
             },
-          },
-          update: { valore: e.valore },
-          create: {
-            intestatarioId: e.intestatarioId,
-            tipoEntrataId: e.tipoEntrataId,
-            anno: e.anno,
-            mese: e.mese,
-            valore: e.valore,
-          },
-        })
-      )
-    );
+          })
+        )
+      );
+      totalInserted += results.length;
+    }
 
     return NextResponse.json({
-      count: results.length,
-      errors: righeConErrore.length > 0 ? righeConErrore : undefined,
+      count: totalInserted,
+      parsed: entrateToUpsert.length,
+      validated: entrateValide.length,
+      errors: righeConErrore.length > 0 ? righeConErrore.slice(0, 10) : undefined,
     });
   } catch (error) {
     console.error("Errore POST import entrate:", error);
