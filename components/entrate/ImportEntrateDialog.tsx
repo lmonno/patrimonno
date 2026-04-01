@@ -103,8 +103,9 @@ export default function ImportEntrateDialog({ open, onClose, onImportSuccess }: 
         setResult({ message: data.error ?? "Errore durante l'importazione", severity: "error" });
         return;
       }
-      const msg = `${data.count} entrate importate${data.errors?.length ? ` (${data.errors.length} errori)` : ""}`;
-      const severity = data.errors?.length ? "error" : "success";
+      const details = data.parsed !== undefined ? ` (${data.parsed} lette, ${data.validated ?? data.count} valide)` : "";
+      const msg = `${data.count} entrate importate${details}${data.errors?.length ? ` — ${data.errors.length} errori` : ""}`;
+      const severity: "success" | "error" = data.errors?.length || data.count === 0 ? "error" : "success";
       setResult({ message: msg, severity });
       onImportSuccess(msg, severity);
       setFile(null);
