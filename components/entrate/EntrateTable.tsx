@@ -58,13 +58,7 @@ interface Intestatario {
 
 function getCurrentPeriod() {
   const now = new Date();
-  let mese = now.getMonth();
-  let anno = now.getFullYear();
-  if (mese === 0) {
-    mese = 12;
-    anno -= 1;
-  }
-  return { anno, mese };
+  return { anno: now.getFullYear(), mese: now.getMonth() + 1 };
 }
 
 export default function EntrateTable() {

@@ -75,13 +75,10 @@ export default function DashboardPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  // Default: mese precedente
+  // Default: mese corrente
   const now = new Date();
-  const defaultMese = now.getMonth() === 0 ? 12 : now.getMonth(); // getMonth() 0-based = mese precedente in 1-based
-  const defaultAnno = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-
-  const [anno, setAnno] = useState(defaultAnno);
-  const [mese, setMese] = useState(defaultMese);
+  const [anno, setAnno] = useState(now.getFullYear());
+  const [mese, setMese] = useState(now.getMonth() + 1);
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [patrimonio, setPatrimonio] = useState<Patrimonio | null>(null);
