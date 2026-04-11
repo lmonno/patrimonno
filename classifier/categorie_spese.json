@@ -1,0 +1,210 @@
+{
+  "versione": "1.0",
+  "descrizione": "Categorie di spesa a due livelli per classificazione movimenti bancari",
+  "categorie": {
+    "Alimentari": {
+      "descrizione": "Spese per cibo e generi alimentari",
+      "sottocategorie": [
+        "Supermercato",
+        "Discount",
+        "Gastronomia/Rosticceria",
+        "Panetteria/Pasticceria",
+        "Macelleria/Pescheria",
+        "Frutta e verdura",
+        "Bevande e alcolici",
+        "Alimentari online"
+      ]
+    },
+    "Ristorazione": {
+      "descrizione": "Pasti e consumazioni fuori casa",
+      "sottocategorie": [
+        "Ristorante/Trattoria",
+        "Pizzeria",
+        "Bar/Caffetteria",
+        "Fast food",
+        "Delivery/Take away",
+        "Gelateria",
+        "Mensa"
+      ]
+    },
+    "Casa": {
+      "descrizione": "Spese abitative e domestiche",
+      "sottocategorie": [
+        "Affitto",
+        "Mutuo",
+        "Condominio",
+        "Utenze luce",
+        "Utenze gas",
+        "Utenze acqua",
+        "Rifiuti/TARI",
+        "Manutenzione e riparazioni",
+        "Arredamento",
+        "Elettrodomestici",
+        "Pulizia e detersivi",
+        "Giardinaggio"
+      ]
+    },
+    "Trasporti": {
+      "descrizione": "Mobilità e spostamenti",
+      "sottocategorie": [
+        "Carburante",
+        "Assicurazione auto/moto",
+        "Bollo auto/moto",
+        "Manutenzione veicolo",
+        "Revisione",
+        "Parcheggio",
+        "Pedaggi autostradali",
+        "Trasporto pubblico",
+        "Taxi/NCC/Uber",
+        "Car sharing/Noleggio",
+        "Treno",
+        "Aereo"
+      ]
+    },
+    "Salute": {
+      "descrizione": "Spese mediche e sanitarie",
+      "sottocategorie": [
+        "Farmacia",
+        "Visita medica specialistica",
+        "Medico di base",
+        "Dentista",
+        "Ottico/Oculista",
+        "Analisi e diagnostica",
+        "Fisioterapia",
+        "Ospedale/Pronto soccorso",
+        "Assicurazione sanitaria",
+        "Parafarmacia"
+      ]
+    },
+    "Cura personale": {
+      "descrizione": "Igiene, estetica e benessere",
+      "sottocategorie": [
+        "Parrucchiere/Barbiere",
+        "Estetica e trattamenti",
+        "Cosmetici e profumi",
+        "Igiene personale",
+        "Palestra/Fitness",
+        "Spa/Terme"
+      ]
+    },
+    "Abbigliamento": {
+      "descrizione": "Vestiti, scarpe e accessori",
+      "sottocategorie": [
+        "Abbigliamento adulto",
+        "Abbigliamento bambini",
+        "Scarpe",
+        "Accessori e borse",
+        "Abbigliamento sportivo",
+        "Lavanderia/Sartoria"
+      ]
+    },
+    "Istruzione": {
+      "descrizione": "Formazione e materiale didattico",
+      "sottocategorie": [
+        "Retta scolastica",
+        "Università",
+        "Corsi e formazione",
+        "Libri scolastici",
+        "Materiale didattico",
+        "Ripetizioni",
+        "Asilo nido"
+      ]
+    },
+    "Svago e tempo libero": {
+      "descrizione": "Intrattenimento, hobby, viaggi",
+      "sottocategorie": [
+        "Cinema/Teatro",
+        "Concerti/Eventi",
+        "Sport e attività",
+        "Abbonamenti streaming",
+        "Giochi e videogiochi",
+        "Hobby e creatività",
+        "Libri e riviste",
+        "Musica",
+        "Parchi divertimento"
+      ]
+    },
+    "Viaggi e vacanze": {
+      "descrizione": "Spese legate a viaggi e soggiorni",
+      "sottocategorie": [
+        "Hotel/B&B",
+        "Appartamento vacanze",
+        "Voli",
+        "Treno lunga percorrenza",
+        "Noleggio auto vacanza",
+        "Escursioni e tour",
+        "Bagagli e accessori viaggio"
+      ]
+    },
+    "Tecnologia e comunicazioni": {
+      "descrizione": "Dispositivi, servizi digitali, telefonia",
+      "sottocategorie": [
+        "Smartphone/Tablet",
+        "Computer e accessori",
+        "Software e app",
+        "Abbonamento telefonia",
+        "Abbonamento internet",
+        "Elettronica varia",
+        "Riparazioni dispositivi"
+      ]
+    },
+    "Figli e famiglia": {
+      "descrizione": "Spese specifiche per figli e nucleo familiare",
+      "sottocategorie": [
+        "Giocattoli",
+        "Pannolini e baby care",
+        "Attività extrascolastiche",
+        "Baby sitter",
+        "Campus/Centri estivi"
+      ]
+    },
+    "Animali domestici": {
+      "descrizione": "Spese per animali da compagnia",
+      "sottocategorie": [
+        "Cibo animali",
+        "Veterinario",
+        "Accessori e toelettatura",
+        "Pensione animali"
+      ]
+    },
+    "Servizi finanziari": {
+      "descrizione": "Costi bancari, assicurativi, fiscali",
+      "sottocategorie": [
+        "Commissioni bancarie",
+        "Canone conto corrente",
+        "Interessi passivi",
+        "Assicurazione vita/casa",
+        "Consulenza finanziaria",
+        "Commercialista/CAF",
+        "Imposte e tasse",
+        "Bolli e marche"
+      ]
+    },
+    "Regali e donazioni": {
+      "descrizione": "Regali, beneficenza, contributi",
+      "sottocategorie": [
+        "Regali",
+        "Beneficenza e donazioni",
+        "Fiori",
+        "Contributi associativi"
+      ]
+    },
+    "Tabacchi e vizi": {
+      "descrizione": "Tabacco, scommesse, spese voluttuarie",
+      "sottocategorie": [
+        "Tabaccheria",
+        "Scommesse/Gioco d'azzardo",
+        "Sigarette elettroniche"
+      ]
+    },
+    "Altro": {
+      "descrizione": "Spese non classificabili nelle altre categorie",
+      "sottocategorie": [
+        "Non classificato",
+        "Prelievo contante",
+        "Giroconto",
+        "Altro"
+      ]
+    }
+  }
+}

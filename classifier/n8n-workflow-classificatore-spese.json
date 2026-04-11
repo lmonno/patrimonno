@@ -1,0 +1,306 @@
+{
+  "name": "Classificatore Spese Bancarie",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "d4ce8bb2-5ce1-4eb9-b3b1-d6a57e95fee8",
+      "name": "Avvio Manuale",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "/files/movements_20260404.xlsx",
+        "options": {}
+      },
+      "id": "4217dd70-b37f-4348-8574-d68aa4d41d66",
+      "name": "Leggi File Excel",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "MODIFICA il percorso: deve essere il path INTERNO al container Docker (es. /files/nomefile.xlsx)"
+    },
+    {
+      "parameters": {
+        "options": {
+          "headerRow": true,
+          "sheetName": ""
+        }
+      },
+      "id": "a6de41f7-1268-4b97-b040-6db63b69033b",
+      "name": "Excel to JSON",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Legge i file di configurazione (prompt + categorie) dal filesystem\n// e formatta i dati Excel come testo per Claude\n//\n// REQUISITO: NODE_FUNCTION_ALLOW_BUILTIN=fs nel docker-compose\n\nconst items = $input.all();\nconst fs = require('fs');\n\nif (!items || items.length === 0) {\n  throw new Error('Nessun dato ricevuto dal foglio Excel');\n}\n\n// --- LEGGI PROMPT E CATEGORIE DA FILE ---\nlet promptEstrazione = '';\nlet promptClassificazione = '';\nlet categorieJson = {};\n\ntry {\n  promptEstrazione = fs.readFileSync('/files/prompt_estrai_movimenti.txt', 'utf-8');\n} catch (e) {\n  throw new Error('File prompt non trovato: /files/prompt_estrai_movimenti.txt — Copia i file .txt nella cartella local-files/');\n}\n\ntry {\n  promptClassificazione = fs.readFileSync('/files/prompt_classifica_spese.txt', 'utf-8');\n} catch (e) {\n  throw new Error('File prompt non trovato: /files/prompt_classifica_spese.txt');\n}\n\ntry {\n  const catRaw = fs.readFileSync('/files/categorie_spese.json', 'utf-8');\n  categorieJson = JSON.parse(catRaw);\n} catch (e) {\n  throw new Error('File categorie non trovato o JSON invalido: /files/categorie_spese.json');\n}\n\n// Formatta le categorie come testo leggibile\nconst categorie = categorieJson.categorie || categorieJson;\nlet categorieText = '';\nfor (const [cat, val] of Object.entries(categorie)) {\n  const subs = Array.isArray(val) ? val : (val.sottocategorie || []);\n  categorieText += `\\n${cat}:\\n`;\n  for (const sub of subs) {\n    categorieText += `  - ${sub}\\n`;\n  }\n}\n\n// Sostituisci il placeholder {{categorie}} nel prompt di classificazione\nconst promptClassificazioneFinale = promptClassificazione.replace('{{categorie}}', categorieText);\n\n// --- FORMATTA DATI EXCEL ---\nconst allHeaders = new Set();\nfor (const item of items) {\n  for (const key of Object.keys(item.json)) {\n    allHeaders.add(key);\n  }\n}\nconst headers = Array.from(allHeaders);\n\nfunction excelDateToString(serial) {\n  if (typeof serial !== 'number' || serial < 1 || serial > 73050) return String(serial);\n  const epoch = new Date(1899, 11, 30);\n  const date = new Date(epoch.getTime() + serial * 86400000);\n  const dd = String(date.getDate()).padStart(2, '0');\n  const mm = String(date.getMonth() + 1).padStart(2, '0');\n  const yyyy = date.getFullYear();\n  return `${dd}/${mm}/${yyyy}`;\n}\n\nlet fileContent = 'RIGA | ' + headers.join(' | ') + '\\n';\nfileContent += '--- | ' + headers.map(() => '---').join(' | ') + '\\n';\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const row = headers.map(h => {\n    let val = item.json[h];\n    if (val === null || val === undefined) return '';\n    if (typeof val === 'number' && h.toLowerCase().match(/data|date|valuta/)) {\n      return excelDateToString(val);\n    }\n    return String(val);\n  });\n  fileContent += `${i + 1} | ` + row.join(' | ') + '\\n';\n}\n\nreturn [{\n  json: {\n    fileContent: fileContent,\n    righe: items.length,\n    colonne: headers,\n    charCount: fileContent.length,\n    promptEstrazione: promptEstrazione,\n    promptClassificazione: promptClassificazioneFinale,\n    categorieText: categorieText\n  }\n}];"
+      },
+      "id": "13554b31-e65b-476f-adcc-49c9bdef195a",
+      "name": "Formatta Dati e Carica Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'claude-haiku-4-5-20251001',\n  max_tokens: 16384,\n  system: $json.promptEstrazione,\n  messages: [{\n    role: 'user',\n    content: `Contenuto grezzo del file Excel (${$json.righe} righe, colonne: ${$json.colonne.join(', ')}):\\n\\n${$json.fileContent.substring(0, 80000)}\\n\\nEstrai tutte le transazioni come JSON array:\\n[{\"data\": \"YYYY-MM-DD\", \"importo\": numero, \"destinatario\": \"nome pulito\", \"ordinante\": \"nome pulito\", \"causale\": \"descrizione originale completa\"}]`\n  }]\n}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "827f79fc-2848-4b1e-9138-b53c477cd92a",
+      "name": "Claude: Estrai Tabella Movimenti",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jKSY4BRJQQ5QVRwT",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\n\nlet text = response.content[0].text;\ntext = text.replace(/```(?:json)?\\s*\\n?/gi, '').trim();\n\nlet transazioni = [];\ntry {\n  transazioni = JSON.parse(text);\n} catch (e) {\n  // JSON troncato: prova a chiudere l'array\n  const lastBrace = text.lastIndexOf('}');\n  if (lastBrace > 0) {\n    const fixed = text.substring(0, lastBrace + 1) + ']';\n    transazioni = JSON.parse(fixed);\n  } else {\n    throw new Error('JSON non riparabile: ' + text.substring(0, 300));\n  }\n}\n\nreturn transazioni.map((t, index) => ({\n  json: {\n    index: index,\n    data: t.data,\n    importo: t.importo,\n    destinatario: t.destinatario,\n    ordinante: t.ordinante,\n    causale: t.causale,\n    totaleTransazioni: transazioni.length\n  }\n}));\n"
+      },
+      "id": "bff3e9b0-b863-4d26-966a-6c268ce85cbb",
+      "name": "Parse Transazioni Estratte",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggrega tutte le transazioni in un unico JSON array\n// e prepara il payload per il nodo di classificazione Claude\n\nconst items = $input.all();\n\nconst transazioni = items.map(item => ({\n  index: item.json.index,\n  data: item.json.data,\n  importo: item.json.importo,\n  destinatario: item.json.destinatario,\n  ordinante: item.json.ordinante,\n  causale: item.json.causale\n}));\n\n// Recupera il prompt di classificazione dal nodo \"Formatta Dati e Carica Config\"\nconst configNode = $('Formatta Dati e Carica Config').first();\nconst promptClassificazione = configNode.json.promptClassificazione;\n\nreturn [{\n  json: {\n    transazioniJson: JSON.stringify(transazioni),\n    totaleTransazioni: transazioni.length,\n    promptClassificazione: promptClassificazione\n  }\n}];"
+      },
+      "id": "a1b2c3d4-1111-2222-3333-444455556666",
+      "name": "Aggrega Transazioni",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: 'claude-haiku-4-5-20251001',\n  max_tokens: 16384,\n  system: $json.promptClassificazione,\n  messages: [{\n    role: 'user',\n    content: `Classifica le seguenti ${$json.totaleTransazioni} transazioni:\\n\\n${$json.transazioniJson}`\n  }]\n}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "b2c3d4e5-2222-3333-4444-555566667777",
+      "name": "Claude: Classifica Spese",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jKSY4BRJQQ5QVRwT",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\n\nlet text = response.content[0].text;\ntext = text.replace(/```(?:json)?\\s*\\n?/gi, '').trim();\n\nlet classificazioni = [];\ntry {\n  classificazioni = JSON.parse(text);\n} catch (e) {\n  // JSON troncato: prova a chiudere l'array\n  const lastBrace = text.lastIndexOf('}');\n  if (lastBrace > 0) {\n    const fixed = text.substring(0, lastBrace + 1) + ']';\n    classificazioni = JSON.parse(fixed);\n  } else {\n    throw new Error('JSON classificazione non riparabile: ' + text.substring(0, 300));\n  }\n}\n\nreturn classificazioni.map(c => ({\n  json: {\n    index: c.index,\n    data: c.data,\n    importo: c.importo,\n    destinatario_originale: c.destinatario_originale,\n    esercente: c.esercente,\n    tipo_attivita: c.tipo_attivita,\n    codice_ateco: c.codice_ateco,\n    categoria: c.categoria,\n    sottocategoria: c.sottocategoria,\n    confidence: c.confidence,\n    note: c.note\n  }\n}));\n"
+      },
+      "id": "c3d4e5f6-3333-4444-5555-666677778888",
+      "name": "Parse Classificazioni",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Avvio Manuale": {
+      "main": [
+        [
+          {
+            "node": "Leggi File Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi File Excel": {
+      "main": [
+        [
+          {
+            "node": "Excel to JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel to JSON": {
+      "main": [
+        [
+          {
+            "node": "Formatta Dati e Carica Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatta Dati e Carica Config": {
+      "main": [
+        [
+          {
+            "node": "Claude: Estrai Tabella Movimenti",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Estrai Tabella Movimenti": {
+      "main": [
+        [
+          {
+            "node": "Parse Transazioni Estratte",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Transazioni Estratte": {
+      "main": [
+        [
+          {
+            "node": "Aggrega Transazioni",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggrega Transazioni": {
+      "main": [
+        [
+          {
+            "node": "Claude: Classifica Spese",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Classifica Spese": {
+      "main": [
+        [
+          {
+            "node": "Parse Classificazioni",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Classificazioni": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4bc8bbfb-465f-4558-9142-f9f62a168202",
+  "meta": {
+    "instanceId": "4d287bc06ebc705c6af8e301f0403d2a90fe7f366113b1b7ebeb7c00eb056d02"
+  },
+  "id": "noVwQ710LBJChafP",
+  "tags": [
+    {
+      "createdAt": "2026-04-04T09:50:26.022Z",
+      "updatedAt": "2026-04-04T09:50:26.022Z",
+      "id": "eE530zyyQKCWgEvI",
+      "name": "claude-ai"
+    },
+    {
+      "createdAt": "2026-04-04T09:50:25.996Z",
+      "updatedAt": "2026-04-04T09:50:25.996Z",
+      "id": "fFOnCYEcAAZwOG0C",
+      "name": "classificatore-spese"
+    },
+    {
+      "createdAt": "2026-04-04T09:59:30.514Z",
+      "updatedAt": "2026-04-04T09:59:30.514Z",
+      "id": "tfhHZibbBRgoo7bB",
+      "name": "test-locale"
+    }
+  ]
+}
