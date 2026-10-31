@@ -7,11 +7,11 @@ ALTER TABLE conti ADD COLUMN tipologia "TipologiaConto" NOT NULL DEFAULT 'LIQUID
 -- Migra dati: liquido=true → LIQUIDO, liquido=false → ALTRO
 UPDATE conti SET tipologia = CASE WHEN liquido = true THEN 'LIQUIDO'::"TipologiaConto" ELSE 'ALTRO'::"TipologiaConto" END;
 
+-- Drop view che dipende dalla colonna liquido PRIMA di rimuoverla
+DROP VIEW IF EXISTS risparmio_spese;
+
 -- Rimuovi colonna liquido
 ALTER TABLE conti DROP COLUMN liquido;
-
--- Aggiorna view risparmio_spese: usa tipologia al posto di liquido
-DROP VIEW IF EXISTS risparmio_spese;
 CREATE VIEW risparmio_spese AS
 WITH
   mesi AS (
