@@ -82,6 +82,7 @@ export default function LoginPage() {
               margin="normal"
               autoComplete="email"
               autoFocus
+              InputLabelProps={{ shrink: true }}
             />
             <TextField
               label="Password"
@@ -92,6 +93,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               margin="normal"
               autoComplete="current-password"
+              InputLabelProps={{ shrink: true }}
             />
             <Button
               type="submit"
