@@ -37,6 +37,7 @@ import ImportAmmortamentoDialog from "./ImportAmmortamentoDialog";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import MonthYearPicker from "@/components/ui/MonthYearPicker";
+import { usePeriodo } from "@/components/layout/PeriodoContext";
 import { formatItalianNumber } from "@/lib/formatNumbers";
 
 interface Rata {
@@ -87,15 +88,8 @@ function getDebitoResiduoAllaData(rate: Rata[], anno: number, mese: number): str
   return found ? found.debitoResiduo : null;
 }
 
-function getCurrentPeriod() {
-  const now = new Date();
-  return { anno: now.getFullYear(), mese: now.getMonth() + 1 };
-}
-
 export default function AmmortamentiPage() {
-  const { anno: initAnno, mese: initMese } = getCurrentPeriod();
-  const [anno, setAnno] = useState(initAnno);
-  const [mese, setMese] = useState(initMese);
+  const { anno, mese, setPeriodo } = usePeriodo();
   const [piani, setPiani] = useState<Piano[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -218,7 +212,7 @@ export default function AmmortamentiPage() {
           Piani di Ammortamento
         </Typography>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
-          <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
+          <MonthYearPicker anno={anno} mese={mese} onChange={setPeriodo} />
           <Button
             variant="outlined"
             startIcon={<UploadIcon />}

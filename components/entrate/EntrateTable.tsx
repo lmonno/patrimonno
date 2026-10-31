@@ -33,6 +33,7 @@ import EntrataForm from "./EntrataForm";
 import ImportEntrateDialog from "./ImportEntrateDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
+import { usePeriodo } from "@/components/layout/PeriodoContext";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -56,14 +57,8 @@ interface Intestatario {
   cognome: string;
 }
 
-function getCurrentPeriod() {
-  const now = new Date();
-  return { anno: now.getFullYear(), mese: now.getMonth() + 1 };
-}
-
 export default function EntrateTable() {
-  const { anno: initAnno, mese: initMese } = getCurrentPeriod();
-  const [anno, setAnno] = useState(initAnno);
+  const { anno, mese, setAnno } = usePeriodo();
   const [entrate, setEntrate] = useState<EntrataWithRelations[]>([]);
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
   const [filtroIntestatario, setFiltroIntestatario] = useState<string>("tutti");
@@ -164,11 +159,11 @@ export default function EntrateTable() {
         </Typography>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <IconButton size="small" onClick={() => setAnno((a) => a - 1)}>
+            <IconButton size="small" onClick={() => setAnno(anno - 1)}>
               <ChevronLeftIcon />
             </IconButton>
             <Typography fontWeight={600} sx={{ minWidth: 44, textAlign: "center" }}>{anno}</Typography>
-            <IconButton size="small" onClick={() => setAnno((a) => a + 1)}>
+            <IconButton size="small" onClick={() => setAnno(anno + 1)}>
               <ChevronRightIcon />
             </IconButton>
           </Box>
@@ -343,7 +338,7 @@ export default function EntrateTable() {
           setSnackbar({ open: true, message: editingEntrata ? "Entrata aggiornata" : "Entrata salvata", severity: "success" });
         }}
         defaultAnno={anno}
-        defaultMese={initMese}
+        defaultMese={mese}
         entrata={editingEntrata ?? undefined}
       />
 

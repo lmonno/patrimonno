@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Box, Toolbar } from "@mui/material";
 import Sidebar, { DRAWER_WIDTH } from "./Sidebar";
 import TopBar from "./TopBar";
+import { PeriodoProvider } from "./PeriodoContext";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -21,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }}
       >
         <Toolbar />
-        {children}
+        <PeriodoProvider>{children}</PeriodoProvider>
       </Box>
     </Box>
   );

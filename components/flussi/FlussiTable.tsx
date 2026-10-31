@@ -35,6 +35,7 @@ import FlussoForm from "./FlussoForm";
 import ImportFlussiDialog from "./ImportFlussiDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { usePeriodo } from "@/components/layout/PeriodoContext";
 import { formatItalianNumber } from "@/lib/formatNumbers";
 
 interface FlussoWithRelations {
@@ -57,8 +58,7 @@ interface Intestatario {
 }
 
 export default function FlussiTable() {
-  const now = new Date();
-  const [anno, setAnno] = useState(now.getFullYear());
+  const { anno, setAnno } = usePeriodo();
   const [flussi, setFlussi] = useState<FlussoWithRelations[]>([]);
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
   const [filtroIntestatario, setFiltroIntestatario] = useState<string>("tutti");
@@ -159,6 +159,8 @@ export default function FlussiTable() {
   // Genera lista anni disponibili (ultimi 10 anni)
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 10 }, (_, i) => currentYear - i);
+  if (!years.includes(anno)) years.push(anno);
+  years.sort((a, b) => b - a);
 
   const handleDownload = async () => {
     setDownloading(true);
