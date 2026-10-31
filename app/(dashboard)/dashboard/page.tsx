@@ -29,6 +29,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
 } from "recharts";
 
 const COLORI_INTESTATARI = [
@@ -88,9 +89,12 @@ export default function DashboardPage() {
   const [selectedTipoIds, setSelectedTipoIds] = useState<string[]>([]);
   const [speseStorico, setSpeseStorico] = useState<EntrataStorico[]>([]);
   const [speseIntestatari, setSpeseIntestatari] = useState<IntNome[]>([]);
+  const [risparmiStorico, setRisparmiStorico] = useState<EntrataStorico[]>([]);
+  const [risparmiIntestatari, setRisparmiIntestatari] = useState<IntNome[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingEntrate, setLoadingEntrate] = useState(true);
   const [loadingSpese, setLoadingSpese] = useState(true);
+  const [loadingRisparmi, setLoadingRisparmi] = useState(true);
 
   // Carica intestatari e tipi entrata al mount
   useEffect(() => {
@@ -164,11 +168,31 @@ export default function DashboardPage() {
     }
   }, [selectedIds, anno, mese]);
 
+  // Carica storico risparmi
+  const fetchRisparmiStorico = useCallback(async () => {
+    setLoadingRisparmi(true);
+    try {
+      const queryParams = new URLSearchParams({ anno: String(anno), mese: String(mese) });
+      if (selectedIds.length > 0) queryParams.set("intestatariIds", selectedIds.join(","));
+      const res = await fetch(`/api/risparmi/storico?${queryParams}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRisparmiStorico(data.storico);
+        setRisparmiIntestatari(data.intestatariNomi ?? []);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingRisparmi(false);
+    }
+  }, [selectedIds, anno, mese]);
+
   useEffect(() => {
     fetchPatrimonio();
     fetchEntrateStorico();
     fetchSpeseStorico();
-  }, [fetchPatrimonio, fetchEntrateStorico, fetchSpeseStorico]);
+    fetchRisparmiStorico();
+  }, [fetchPatrimonio, fetchEntrateStorico, fetchSpeseStorico, fetchRisparmiStorico]);
 
   const toggleIntestatario = (id: string) => {
     setSelectedIds((prev) =>
@@ -237,6 +261,30 @@ export default function DashboardPage() {
       return punto;
     }),
     [speseStorico, speseIntestatari]
+  );
+
+  // Mappa colori intestatari risparmi
+  const coloriMapRisparmi = useMemo(() => {
+    const map = new Map<string, string>();
+    risparmiIntestatari.forEach((int, i) => {
+      map.set(int.id, COLORI_INTESTATARI[i % COLORI_INTESTATARI.length]);
+    });
+    return map;
+  }, [risparmiIntestatari]);
+
+  // Dati grafico risparmi
+  const chartDataRisparmi = useMemo(() =>
+    risparmiStorico.map((e) => {
+      const punto: Record<string, unknown> = {
+        label: `${String(e.mese).padStart(2, "0")}/${String(e.anno).slice(-2)}`,
+        mediana: e.mediana,
+      };
+      for (const int of risparmiIntestatari) {
+        punto[int.id] = e.perIntestatario?.[int.id] ?? 0;
+      }
+      return punto;
+    }),
+    [risparmiStorico, risparmiIntestatari]
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -509,6 +557,70 @@ export default function DashboardPage() {
                       name={int.nome}
                       stackId="spese"
                       fill={coloriMapSpese.get(int.id) ?? "#c62828"}
+                      opacity={0.7}
+                    />
+                  ))}
+                  <Line
+                    dataKey="mediana"
+                    name="Mediana 12 mesi"
+                    stroke="#ff9800"
+                    strokeWidth={2.5}
+                    dot={false}
+                    type="monotone"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+      </Box>
+
+      {/* Grafico Risparmi */}
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+          Risparmi mensili
+        </Typography>
+
+        {loadingRisparmi ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : chartDataRisparmi.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+            Nessun dato sui risparmi disponibile
+          </Typography>
+        ) : (
+          <Card>
+            <CardContent sx={{ px: isMobile ? 1 : 3 }}>
+              <ResponsiveContainer width="100%" height={isMobile ? 280 : 350}>
+                <ComposedChart data={chartDataRisparmi} margin={{ top: 10, right: isMobile ? 5 : 20, left: isMobile ? -15 : 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                    interval={isMobile ? 5 : 2}
+                    angle={isMobile ? -45 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                  />
+                  <YAxis
+                    tick={{ fontSize: isMobile ? 10 : 12 }}
+                    tickFormatter={(v: number) => `${(v / 1000).toFixed(1).replace(".", ",")}k`}
+                  />
+                  <Tooltip
+                    formatter={formatTooltipValue}
+                    labelStyle={{ fontWeight: 600 }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: isMobile ? 11 : 13 }}
+                  />
+                  <ReferenceLine y={0} stroke="#9e9e9e" strokeDasharray="3 3" />
+                  {risparmiIntestatari.map((int) => (
+                    <Bar
+                      key={int.id}
+                      dataKey={int.id}
+                      name={int.nome}
+                      stackId="risparmi"
+                      fill={coloriMapRisparmi.get(int.id) ?? "#2e7d32"}
                       opacity={0.7}
                     />
                   ))}
