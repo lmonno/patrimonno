@@ -72,7 +72,7 @@ interface SaldoWithConto {
   conto: {
     id: string;
     nome: string;
-    tipologia: string;
+    liquido: boolean;
     tipoConto: { id: string; nome: string };
     rapporto: { id: string; nome: string; istituto: string; iban: string | null };
     intestatari: { intestatario: { id: string; nome: string; cognome: string } }[];
@@ -504,10 +504,7 @@ export default function SaldiTable() {
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
                         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                           <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
-                          {s.conto.tipologia === "INVESTIMENTO" && (
-                            <Chip label="Investimento" size="small" color="info" variant="outlined" />
-                          )}
-                          {s.conto.tipologia === "ALTRO" && (
+                          {!s.conto.liquido && (
                             <Chip label="Non liquido" size="small" color="warning" variant="outlined" />
                           )}
                           {s.conto.intestatari.map((i) => (
@@ -574,10 +571,7 @@ export default function SaldiTable() {
                           <TableCell>
                             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                               <Chip label={s.conto.tipoConto.nome} size="small" variant="outlined" />
-                              {s.conto.tipologia === "INVESTIMENTO" && (
-                                <Chip label="Investimento" size="small" color="info" variant="outlined" />
-                              )}
-                              {s.conto.tipologia === "ALTRO" && (
+                              {!s.conto.liquido && (
                                 <Chip label="Non liquido" size="small" color="warning" variant="outlined" />
                               )}
                             </Box>

@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Separa conti liquidi da tutti
-    const conti = tuttiConti.filter((c) => c.tipologia === "LIQUIDO");
+    const conti = tuttiConti.filter((c) => c.liquido);
 
     // Per ogni conto calcola la quota in base al filtro intestatari
     const contiConQuota = conti

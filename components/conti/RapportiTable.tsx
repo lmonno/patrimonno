@@ -46,7 +46,7 @@ interface Conto {
   id: string;
   nome: string;
   tipoContoId: string;
-  tipologia: string;
+  liquido: boolean;
   archiviato: boolean;
   note: string | null;
   rapportoId: string;
@@ -341,10 +341,7 @@ export default function RapportiTable() {
                             <TableCell>
                               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                 {conto.nome}
-                                {conto.tipologia === "INVESTIMENTO" && (
-                                  <Chip label="Investimento" size="small" color="info" variant="outlined" />
-                                )}
-                                {conto.tipologia === "ALTRO" && (
+                                {!conto.liquido && (
                                   <Chip label="Non liquido" size="small" color="warning" variant="outlined" />
                                 )}
                                 {conto.archiviato && (

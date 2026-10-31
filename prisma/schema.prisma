@@ -76,12 +76,6 @@ enum Ruolo {
   UTENTE
 }
 
-enum TipologiaConto {
-  LIQUIDO
-  INVESTIMENTO
-  ALTRO
-}
-
 // ─── DOMAIN MODELS ──────────────────────────────────────────────
 
 model Intestatario {
@@ -136,7 +130,7 @@ model Conto {
   rapportoId  String
   nome        String
   tipoContoId String
-  tipologia   TipologiaConto @default(LIQUIDO)
+  liquido     Boolean   @default(true)
   archiviato  Boolean   @default(false)
   ordine      Int       @default(0)
   note        String?   @db.Text
