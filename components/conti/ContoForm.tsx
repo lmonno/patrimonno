@@ -11,8 +11,6 @@ import {
   MenuItem,
   Alert,
   FormControl,
-  FormControlLabel,
-  Switch,
   InputLabel,
   Select,
   Chip,
@@ -41,7 +39,7 @@ interface ContoFormProps {
     id: string;
     nome: string;
     tipoContoId: string;
-    liquido: boolean;
+    tipologia: string;
     note: string | null;
     intestatari: { intestatario: Intestatario }[];
   } | null;
@@ -51,7 +49,7 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
   const [form, setForm] = useState({
     nome: "",
     tipoContoId: "",
-    liquido: true,
+    tipologia: "LIQUIDO",
     note: "",
     intestatariIds: [] as string[],
   });
@@ -68,7 +66,7 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
       setForm({
         nome: editData?.nome ?? "",
         tipoContoId: editData?.tipoContoId ?? "",
-        liquido: editData?.liquido ?? true,
+        tipologia: editData?.tipologia ?? "LIQUIDO",
         note: editData?.note ?? "",
         intestatariIds: editData?.intestatari?.map((i) => i.intestatario.id) ?? [],
       });
@@ -105,7 +103,7 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
         body: JSON.stringify({
           nome: form.nome,
           tipoContoId: form.tipoContoId,
-          liquido: form.liquido,
+          tipologia: form.tipologia,
           note: form.note || null,
           intestatariIds: form.intestatariIds,
         }),
@@ -172,17 +170,19 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
             onChange={handleChange("note")}
             margin="normal"
           />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={form.liquido}
-                onChange={(e) => setForm({ ...form, liquido: e.target.checked })}
-                color="primary"
-              />
-            }
-            label="Includi in patrimonio liquido (dashboard)"
-            sx={{ mt: 1, mb: 0.5 }}
-          />
+          <TextField
+            label="Tipologia"
+            select
+            fullWidth
+            required
+            value={form.tipologia}
+            onChange={(e) => setForm({ ...form, tipologia: e.target.value })}
+            margin="normal"
+          >
+            <MenuItem value="LIQUIDO">Liquido (c/c, depositi)</MenuItem>
+            <MenuItem value="INVESTIMENTO">Investimento (titoli, fondi, ETF)</MenuItem>
+            <MenuItem value="ALTRO">Altro (immobili, veicoli)</MenuItem>
+          </TextField>
           <FormControl fullWidth margin="normal" required>
             <InputLabel>Intestatari</InputLabel>
             <Select

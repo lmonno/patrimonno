@@ -122,7 +122,7 @@ async function main() {
     conti: {
       nome: string;
       tipoContoId: string;
-      liquido: boolean;
+      tipologia: "LIQUIDO" | "INVESTIMENTO" | "ALTRO";
       intestatariIds: string[];
       ordine: number;
     }[]
@@ -145,7 +145,7 @@ async function main() {
             rapportoId: rap.id,
             nome: c.nome,
             tipoContoId: c.tipoContoId,
-            liquido: c.liquido,
+            tipologia: c.tipologia,
             ordine: c.ordine,
           },
         });
@@ -165,8 +165,8 @@ async function main() {
   const contiIntesa = await creaRapportoConConti(
     { nome: "Intesa Sanpaolo - Marco", istituto: "Intesa Sanpaolo", iban: "IT60X0542811101000000123456" },
     [
-      { nome: "C/C Principale", tipoContoId: tipoCC.id, liquido: true, intestatariIds: [marco.id], ordine: 1 },
-      { nome: "Conto Titoli ISP", tipoContoId: tipoTitoli.id, liquido: false, intestatariIds: [marco.id], ordine: 2 },
+      { nome: "C/C Principale", tipoContoId: tipoCC.id, tipologia: "LIQUIDO" as const, intestatariIds: [marco.id], ordine: 1 },
+      { nome: "Conto Titoli ISP", tipoContoId: tipoTitoli.id, tipologia: "INVESTIMENTO" as const, intestatariIds: [marco.id], ordine: 2 },
     ]
   );
   console.log(`✔ Rapporto Intesa Sanpaolo: ${contiIntesa.length} conti`);
@@ -175,8 +175,8 @@ async function main() {
   const contiFineco = await creaRapportoConConti(
     { nome: "Fineco - Famiglia", istituto: "FinecoBank", iban: "IT40S0301503200000003456789" },
     [
-      { nome: "C/C Fineco", tipoContoId: tipoCC.id, liquido: true, intestatariIds: [marco.id, laura.id], ordine: 1 },
-      { nome: "Fondi Fineco", tipoContoId: tipoInvestimento.id, liquido: false, intestatariIds: [marco.id, laura.id], ordine: 2 },
+      { nome: "C/C Fineco", tipoContoId: tipoCC.id, tipologia: "LIQUIDO" as const, intestatariIds: [marco.id, laura.id], ordine: 1 },
+      { nome: "Fondi Fineco", tipoContoId: tipoInvestimento.id, tipologia: "INVESTIMENTO" as const, intestatariIds: [marco.id, laura.id], ordine: 2 },
     ]
   );
   console.log(`✔ Rapporto Fineco: ${contiFineco.length} conti`);
@@ -185,7 +185,7 @@ async function main() {
   const contiIng = await creaRapportoConConti(
     { nome: "ING - Laura", istituto: "ING", iban: "IT15T0347501601CC0010000123" },
     [
-      { nome: "Conto Arancio", tipoContoId: tipoDeposito.id, liquido: true, intestatariIds: [laura.id], ordine: 1 },
+      { nome: "Conto Arancio", tipoContoId: tipoDeposito.id, tipologia: "LIQUIDO" as const, intestatariIds: [laura.id], ordine: 1 },
     ]
   );
   console.log(`✔ Rapporto ING: ${contiIng.length} conto`);
@@ -194,7 +194,7 @@ async function main() {
   const contiAmundi = await creaRapportoConConti(
     { nome: "Amundi SecondaPensione", istituto: "Amundi", note: "Linea bilanciata" },
     [
-      { nome: "Fondo Pensione Marco", tipoContoId: tipoFondoPensione.id, liquido: false, intestatariIds: [marco.id], ordine: 1 },
+      { nome: "Fondo Pensione Marco", tipoContoId: tipoFondoPensione.id, tipologia: "ALTRO" as const, intestatariIds: [marco.id], ordine: 1 },
     ]
   );
   console.log(`✔ Rapporto Amundi: ${contiAmundi.length} conto`);
