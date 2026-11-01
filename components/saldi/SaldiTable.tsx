@@ -179,8 +179,8 @@ export default function SaldiTable() {
   const keyboardSensor = useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates });
   const sensors = useSensors(pointerSensor, touchSensor, keyboardSensor);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silenzioso = false) => {
+    if (!silenzioso) setLoading(true);
     try {
       const [saldiRes, prevRes] = await Promise.all([
         fetch(`/api/saldi?anno=${anno}&mese=${mese}`),
@@ -206,7 +206,7 @@ export default function SaldiTable() {
       const res = await fetch(`/api/saldi/${deleteId}`, { method: "DELETE" });
       if (res.ok) {
         setSnackbar({ open: true, message: "Saldo eliminato", severity: "success" });
-        fetchData();
+        fetchData(true);
       } else {
         setSnackbar({ open: true, message: "Errore durante l'eliminazione", severity: "error" });
       }
@@ -273,7 +273,7 @@ export default function SaldiTable() {
       if (res.ok) {
         setEditingId(null);
         setEditValue("");
-        fetchData();
+        fetchData(true);
         setSnackbar({ open: true, message: "Saldo aggiornato", severity: "success" });
       } else {
         setSnackbar({ open: true, message: "Errore nel salvataggio", severity: "error" });
@@ -655,7 +655,7 @@ export default function SaldiTable() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         onSave={() => {
-          fetchData();
+          fetchData(true);
           setSnackbar({ open: true, message: "Saldi salvati con successo", severity: "success" });
         }}
         defaultAnno={anno}
@@ -676,7 +676,7 @@ export default function SaldiTable() {
         onClose={() => setImportDialogOpen(false)}
         onImportSuccess={(message, severity) => {
           setSnackbar({ open: true, message, severity });
-          fetchData();
+          fetchData(true);
         }}
       />
 
