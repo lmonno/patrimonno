@@ -19,6 +19,7 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import MonthYearPicker from "@/components/ui/MonthYearPicker";
+import { usePeriodo } from "@/components/layout/PeriodoContext";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -76,10 +77,7 @@ export default function DashboardPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  // Default: mese corrente
-  const now = new Date();
-  const [anno, setAnno] = useState(now.getFullYear());
-  const [mese, setMese] = useState(now.getMonth() + 1);
+  const { anno, mese, setPeriodo } = usePeriodo();
   const [intestatari, setIntestatari] = useState<Intestatario[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [patrimonio, setPatrimonio] = useState<Patrimonio | null>(null);
@@ -296,7 +294,7 @@ export default function DashboardPage() {
         <Typography variant="h4" fontWeight={700}>
           Benvenuto, {user?.nome}
         </Typography>
-        <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
+        <MonthYearPicker anno={anno} mese={mese} onChange={setPeriodo} />
       </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         Panoramica del patrimonio familiare

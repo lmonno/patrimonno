@@ -59,6 +59,7 @@ import SaldoForm from "./SaldoForm";
 import ImportDialog from "./ImportDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import MonthYearPicker, { MESI_LUNGHI } from "@/components/ui/MonthYearPicker";
+import { usePeriodo } from "@/components/layout/PeriodoContext";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { parseItalianNumber, evaluateFormula, formatItalianNumber } from "@/lib/formatNumbers";
 
@@ -77,11 +78,6 @@ interface SaldoWithConto {
     rapporto: { id: string; nome: string; istituto: string; iban: string | null };
     intestatari: { intestatario: { id: string; nome: string; cognome: string } }[];
   };
-}
-
-function getCurrentPeriod() {
-  const now = new Date();
-  return { anno: now.getFullYear(), mese: now.getMonth() + 1 };
 }
 
 // ─── Sortable Table Row ───
@@ -157,9 +153,7 @@ function SortableCard({
 }
 
 export default function SaldiTable() {
-  const { anno: initAnno, mese: initMese } = getCurrentPeriod();
-  const [anno, setAnno] = useState(initAnno);
-  const [mese, setMese] = useState(initMese);
+  const { anno, mese, setPeriodo } = usePeriodo();
   const [saldi, setSaldi] = useState<SaldoWithConto[]>([]);
   const [prevSaldi, setPrevSaldi] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -411,7 +405,7 @@ export default function SaldiTable() {
           Saldi
         </Typography>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
-          <MonthYearPicker anno={anno} mese={mese} onChange={(a, m) => { setAnno(a); setMese(m); }} />
+          <MonthYearPicker anno={anno} mese={mese} onChange={setPeriodo} />
           {saldi.length > 1 && (
             <Button
               variant={reordering ? "contained" : "outlined"}

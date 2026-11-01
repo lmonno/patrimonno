@@ -42,6 +42,7 @@ interface ContoFormProps {
     nome: string;
     tipoContoId: string;
     liquido: boolean;
+    deltaFv: boolean;
     note: string | null;
     intestatari: { intestatario: Intestatario }[];
   } | null;
@@ -52,6 +53,7 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
     nome: "",
     tipoContoId: "",
     liquido: true,
+    deltaFv: false,
     note: "",
     intestatariIds: [] as string[],
   });
@@ -69,6 +71,7 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
         nome: editData?.nome ?? "",
         tipoContoId: editData?.tipoContoId ?? "",
         liquido: editData?.liquido ?? true,
+        deltaFv: editData?.deltaFv ?? false,
         note: editData?.note ?? "",
         intestatariIds: editData?.intestatari?.map((i) => i.intestatario.id) ?? [],
       });
@@ -106,6 +109,7 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
           nome: form.nome,
           tipoContoId: form.tipoContoId,
           liquido: form.liquido,
+          deltaFv: form.deltaFv,
           note: form.note || null,
           intestatariIds: form.intestatariIds,
         }),
@@ -182,6 +186,17 @@ export default function ContoForm({ open, onClose, onSave, rapportoId, editData 
             }
             label="Includi in patrimonio liquido (dashboard)"
             sx={{ mt: 1, mb: 0.5 }}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.deltaFv}
+                onChange={(e) => setForm({ ...form, deltaFv: e.target.checked })}
+                color="primary"
+              />
+            }
+            label="Delta fair value (escludi dal calcolo del risparmio)"
+            sx={{ mb: 0.5 }}
           />
           <FormControl fullWidth margin="normal" required>
             <InputLabel>Intestatari</InputLabel>

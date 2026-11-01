@@ -47,6 +47,7 @@ interface Conto {
   nome: string;
   tipoContoId: string;
   liquido: boolean;
+  deltaFv: boolean;
   archiviato: boolean;
   note: string | null;
   rapportoId: string;
@@ -343,6 +344,9 @@ export default function RapportiTable() {
                                 {conto.nome}
                                 {!conto.liquido && (
                                   <Chip label="Non liquido" size="small" color="warning" variant="outlined" />
+                                )}
+                                {conto.deltaFv && (
+                                  <Chip label="Delta FV" size="small" color="info" variant="outlined" />
                                 )}
                                 {conto.archiviato && (
                                   <Chip label="Archiviato" size="small" color="default" variant="outlined" />
