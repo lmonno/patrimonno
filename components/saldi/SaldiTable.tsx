@@ -35,6 +35,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import FunctionsIcon from "@mui/icons-material/Functions";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import SwapVertIcon from "@mui/icons-material/SwapVert";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import {
   DndContext,
   closestCenter,
@@ -170,6 +172,9 @@ export default function SaldiTable() {
   const [editSaving, setEditSaving] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
 
+  // Ricerca
+  const [searchQuery, setSearchQuery] = useState("");
+
   // Drag and drop
   const [reordering, setReordering] = useState(false);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -285,8 +290,43 @@ export default function SaldiTable() {
     }
   };
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/saldi/export");
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "export_saldi.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setSnackbar({ open: true, message: "Errore nel download", severity: "error" });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const filteredSaldi = searchQuery.trim()
+    ? (() => {
+        const terms = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+        return saldi.filter((s) => {
+          const searchable = [
+            s.conto.nome,
+            s.conto.rapporto.nome,
+            s.conto.rapporto.istituto,
+            s.conto.tipoConto.nome,
+            ...s.conto.intestatari.map((i) => `${i.intestatario.nome} ${i.intestatario.cognome}`),
+          ].join(" ").toLowerCase();
+          return terms.every((t) => searchable.includes(t));
+        });
+      })()
+    : saldi;
+
   // ─── Drag handlers ───
-  const contoIds = saldi.map((s) => s.contoId);
+  const contoIds = filteredSaldi.map((s) => s.contoId);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveDragId(event.active.id as string);
@@ -322,26 +362,7 @@ export default function SaldiTable() {
     }
   };
 
-  const handleDownload = async () => {
-    setDownloading(true);
-    try {
-      const res = await fetch("/api/saldi/export");
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "export_saldi.xlsx";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      setSnackbar({ open: true, message: "Errore nel download", severity: "error" });
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  const totale = saldi.reduce((sum, s) => sum + parseFloat(s.valore.toString()), 0);
+  const totale = filteredSaldi.reduce((sum, s) => sum + parseFloat(s.valore.toString()), 0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -405,6 +426,29 @@ export default function SaldiTable() {
           Saldi
         </Typography>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            placeholder="Cerca..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchQuery("")} edge="end">
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : undefined,
+              },
+            }}
+            sx={{ width: isMobile ? 140 : 200 }}
+          />
           <MonthYearPicker anno={anno} mese={mese} onChange={setPeriodo} />
           {saldi.length > 1 && (
             <Button
@@ -447,6 +491,8 @@ export default function SaldiTable() {
 
       {saldi.length === 0 ? (
         <EmptyState message={`Nessun saldo per ${MESI_LUNGHI[mese - 1]} ${anno}`} />
+      ) : filteredSaldi.length === 0 ? (
+        <EmptyState message="Nessun risultato per la ricerca" />
       ) : (
         <DndContext
           sensors={sensors}
@@ -458,7 +504,7 @@ export default function SaldiTable() {
             {isMobile ? (
               /* ─── MOBILE: Card layout ─── */
               <Stack spacing={1.5}>
-                {saldi.map((s) => {
+                {filteredSaldi.map((s) => {
                   const isEditing = editingId === s.id;
                   return (
                     <SortableCard key={s.contoId} saldo={s} reordering={reordering}>
@@ -552,7 +598,7 @@ export default function SaldiTable() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {saldi.map((s) => {
+                    {filteredSaldi.map((s) => {
                       const isEditing = editingId === s.id;
 
                       return (
