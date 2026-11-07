@@ -147,6 +147,12 @@ export default function AmmortamentiPage() {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  const totaleDebiti = piani.reduce((sum, piano) => {
+    if (piano.rate.length === 0) return sum;
+    const debito = getDebitoResiduoAllaData(piano.rate, anno, mese);
+    return sum + (debito !== null ? parseFloat(debito) : 0);
+  }, 0);
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -237,6 +243,18 @@ export default function AmmortamentiPage() {
       ) : isMobile ? (
         /* ─── MOBILE: Card layout ─── */
         <Stack spacing={1.5}>
+          {piani.length > 1 && (
+            <Card variant="outlined" sx={{ bgcolor: "action.hover" }}>
+              <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Typography variant="body1" fontWeight={700}>Totale Debiti</Typography>
+                  <Typography variant="body1" fontWeight={700} sx={{ fontFamily: "monospace" }}>
+                    {formatItalianNumber(totaleDebiti.toFixed(2))} €
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
           {piani.map((piano) => {
             const isExpanded = expandedId === piano.id;
             return (
@@ -360,6 +378,18 @@ export default function AmmortamentiPage() {
                   </TableRow>
                 );
               })}
+              {piani.length > 1 && (
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell />
+                  <TableCell colSpan={3}>
+                    <Typography variant="body2" fontWeight={700}>Totale Debiti</Typography>
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontFamily: "monospace", fontWeight: 700 }}>
+                    {formatItalianNumber(totaleDebiti.toFixed(2))} €
+                  </TableCell>
+                  <TableCell colSpan={2} />
+                </TableRow>
+              )}
             </TableBody>
           </Table>
 
