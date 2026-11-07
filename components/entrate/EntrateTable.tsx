@@ -18,6 +18,8 @@ import {
   Snackbar,
   IconButton,
   Tooltip,
+  TextField,
+  InputAdornment,
   Card,
   CardContent,
   Stack,
@@ -29,6 +31,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import UploadIcon from "@mui/icons-material/Upload";
 import DownloadIcon from "@mui/icons-material/Download";
 import EditIcon from "@mui/icons-material/Edit";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import EntrataForm from "./EntrataForm";
 import ImportEntrateDialog from "./ImportEntrateDialog";
 import EmptyState from "@/components/ui/EmptyState";
@@ -70,6 +74,7 @@ export default function EntrateTable() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" as "success" | "error" });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -122,7 +127,23 @@ export default function EntrateTable() {
     }
   };
 
-  const totale = entrate.reduce((sum, e) => sum + parseFloat(e.valore.toString()), 0);
+  const filteredEntrate = searchQuery.trim()
+    ? (() => {
+        const terms = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+        return entrate.filter((e) => {
+          const searchable = [
+            e.intestatario.nome,
+            e.intestatario.cognome,
+            e.tipoEntrata.nome,
+            MESI_LUNGHI[e.mese - 1],
+            e.note ?? "",
+          ].join(" ").toLowerCase();
+          return terms.every((t) => searchable.includes(t));
+        });
+      })()
+    : entrate;
+
+  const totale = filteredEntrate.reduce((sum, e) => sum + parseFloat(e.valore.toString()), 0);
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -158,6 +179,29 @@ export default function EntrateTable() {
           Entrate
         </Typography>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            placeholder="Cerca..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchQuery("")} edge="end">
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : undefined,
+              },
+            }}
+            sx={{ width: isMobile ? 140 : 200 }}
+          />
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <IconButton size="small" onClick={() => setAnno(anno - 1)}>
               <ChevronLeftIcon />
@@ -223,10 +267,12 @@ export default function EntrateTable() {
 
       {entrate.length === 0 ? (
         <EmptyState message={`Nessuna entrata per ${anno}`} />
+      ) : filteredEntrate.length === 0 ? (
+        <EmptyState message="Nessun risultato per la ricerca" />
       ) : isMobile ? (
         /* ─── MOBILE: Card layout ─── */
         <Stack spacing={1.5}>
-          {entrate.map((e) => (
+          {filteredEntrate.map((e) => (
             <Card key={e.id} variant="outlined">
               <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
@@ -283,7 +329,7 @@ export default function EntrateTable() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {entrate.map((e) => (
+              {filteredEntrate.map((e) => (
                 <TableRow key={e.id} hover>
                   <TableCell>
                     <Typography variant="body2" fontWeight={500}>
