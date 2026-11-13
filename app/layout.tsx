@@ -11,6 +11,11 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: "Family Wealth Tracker",
   description: "Monitoraggio patrimonio familiare",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
