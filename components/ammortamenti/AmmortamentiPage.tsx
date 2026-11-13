@@ -72,17 +72,16 @@ function formatMonthYear(dateStr: string) {
   return d.toLocaleDateString("it-IT", { month: "2-digit", year: "numeric" });
 }
 
-/** Trova la rata più recente con data <= fine mese di riferimento */
 function getDebitoResiduoAllaData(rate: Rata[], anno: number, mese: number): string | null {
-  // Fine del mese di riferimento
-  const rifDate = new Date(anno, mese, 0); // ultimo giorno del mese
+  const rifVal = anno * 12 + mese;
   let found: Rata | null = null;
   for (const r of rate) {
     const d = new Date(r.data);
-    if (d <= rifDate) {
+    const rataVal = d.getUTCFullYear() * 12 + (d.getUTCMonth() + 1);
+    if (rataVal <= rifVal) {
       found = r;
     } else {
-      break; // rate ordinate per data crescente
+      break;
     }
   }
   return found ? found.debitoResiduo : null;
