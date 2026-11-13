@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
           },
           update: {
             valore: parseFloat(entrata.valore),
+            formula: entrata.formula ?? null,
             note: entrata.note ?? null,
           },
           create: {
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
             anno: entrata.anno,
             mese: entrata.mese,
             valore: parseFloat(entrata.valore),
+            formula: entrata.formula ?? null,
             note: entrata.note ?? null,
           },
         })

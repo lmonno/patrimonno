@@ -50,6 +50,7 @@ interface EntrataWithRelations {
   anno: number;
   mese: number;
   valore: string;
+  formula: string | null;
   note: string | null;
   intestatario: { id: string; nome: string; cognome: string };
   tipoEntrata: { id: string; nome: string };

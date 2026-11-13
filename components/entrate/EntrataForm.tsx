@@ -44,6 +44,7 @@ interface EntrataData {
   anno: number;
   mese: number;
   valore: string;
+  formula: string | null;
   note: string | null;
   intestatario: { id: string; nome: string; cognome: string };
   tipoEntrata: { id: string; nome: string };
@@ -121,7 +122,7 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     setMese(m);
     setIntestatarioId(intId);
     setTipoEntrataId(tipoId);
-    setValore(entrata ? formatItalianNumber(entrata.valore) : "");
+    setValore(entrata ? (entrata.formula ?? formatItalianNumber(entrata.valore)) : "");
     setNote(entrata?.note ?? "");
     setPrevValue(null);
     loadData();
@@ -173,18 +174,20 @@ export default function EntrataForm({ open, onClose, onSave, defaultAnno, defaul
     setSaving(true);
     setError("");
 
-    const entrateToSave: { intestatarioId: string; tipoEntrataId: string; anno: number; mese: number; valore: string; note?: string }[] = [];
+    const entrateToSave: { intestatarioId: string; tipoEntrataId: string; anno: number; mese: number; valore: string; formula?: string; note?: string }[] = [];
     const tipoId = isEdit ? entrata!.tipoEntrataId : tipoEntrataId;
     const noteValue = note.trim() || undefined;
+    const raw = valore.trim();
+    const formulaValue = raw.startsWith("=") ? raw : undefined;
 
     if (!isEdit && intestatarioId === "comune") {
       const valorePerInt = Math.round((parseFloat(resolved) / intestatari.length) * 100) / 100;
       for (const int of intestatari) {
-        entrateToSave.push({ intestatarioId: int.id, tipoEntrataId: tipoId, anno, mese, valore: valorePerInt.toString(), note: noteValue });
+        entrateToSave.push({ intestatarioId: int.id, tipoEntrataId: tipoId, anno, mese, valore: valorePerInt.toString(), formula: formulaValue, note: noteValue });
       }
     } else {
       const intId = isEdit ? entrata!.intestatarioId : intestatarioId;
-      entrateToSave.push({ intestatarioId: intId, tipoEntrataId: tipoId, anno: isEdit ? entrata!.anno : anno, mese: isEdit ? entrata!.mese : mese, valore: resolved, note: noteValue });
+      entrateToSave.push({ intestatarioId: intId, tipoEntrataId: tipoId, anno: isEdit ? entrata!.anno : anno, mese: isEdit ? entrata!.mese : mese, valore: resolved, formula: formulaValue, note: noteValue });
     }
 
     try {

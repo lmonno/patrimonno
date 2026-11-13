@@ -232,6 +232,7 @@ model Entrata {
   anno            Int
   mese            Int
   valore          Decimal  @db.Decimal(15, 2)
+  formula         String?
   note            String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
