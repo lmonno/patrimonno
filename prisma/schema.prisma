@@ -67,6 +67,7 @@ model User {
   rapporti             Rapporto[]
   flussiStraordinari   FlussoStraordinario[]
   pianiAmmortamento    PianoAmmortamento[]
+  speseRicorrenti      SpesaRicorrente[]
 
   @@map("users")
 }
@@ -89,6 +90,7 @@ model Intestatario {
   conti               ContoIntestatario[]
   entrate             Entrata[]
   flussiStraordinari  FlussoStraordinario[]
+  spesePagate         SpesaPagatore[]
   userId    String
   user      User      @relation(fields: [userId], references: [id])
 
@@ -242,6 +244,46 @@ model Entrata {
 
   @@unique([intestatarioId, tipoEntrataId, anno, mese])
   @@map("entrate")
+}
+
+// ─── SPESE RICORRENTI ─────────────────────────────────────────
+
+enum Periodicita {
+  MENSILE
+  TRIMESTRALE
+  SEMESTRALE
+  ANNUALE
+}
+
+model SpesaRicorrente {
+  id            String       @id @default(cuid())
+  nome          String
+  importo       Decimal      @db.Decimal(15, 2)
+  periodicita   Periodicita
+  meseScadenza  Int?
+  annoScadenza  Int?
+  note          String?      @db.Text
+  userId        String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+
+  user     User            @relation(fields: [userId], references: [id])
+  pagatori SpesaPagatore[]
+
+  @@map("spese_ricorrenti")
+}
+
+model SpesaPagatore {
+  id                String @id @default(cuid())
+  spesaRicorrenteId String
+  intestatarioId    String
+
+  spesaRicorrente SpesaRicorrente @relation(fields: [spesaRicorrenteId], references: [id], onDelete: Cascade)
+  intestatario    Intestatario    @relation(fields: [intestatarioId], references: [id], onDelete: Cascade)
+
+  @@unique([spesaRicorrenteId, intestatarioId])
+  @@map("spesa_pagatori")
 }
 
 // ─── FLUSSI STRAORDINARI ──────────────────────────────────────
